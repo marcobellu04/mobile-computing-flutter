@@ -1,0 +1,37 @@
+name: my_first_app
+description: A new Flutter project.
+
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  shared_preferences: ^2.1.1
+
+  cupertino_icons: ^1.0.6
+
+  # Per la lista degli annunci
+  flutter_staggered_grid_view: ^0.7.0
+
+  # Per le animazioni leggere delle card
+  animations: ^2.0.8
+
+  # Gestione dati provvisoria (per ora niente backend)
+  provider: ^6.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
