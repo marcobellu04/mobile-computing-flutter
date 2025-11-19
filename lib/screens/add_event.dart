@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
+import 'package:uuid/uuid.dart';
 import '../models/event.dart';
-import '../models/venue.dart';
 import '../providers/event_provider.dart';
-import '../providers/venue_provider.dart';
 
 class AddEventScreen extends StatefulWidget {
   const AddEventScreen({super.key});
@@ -15,149 +12,200 @@ class AddEventScreen extends StatefulWidget {
 }
 
 class _AddEventScreenState extends State<AddEventScreen> {
-  final TextEditingController nameController = TextEditingController();
-  final TextEditingController descriptionController = TextEditingController();
-  final TextEditingController zoneController = TextEditingController();
-  final TextEditingController maxParticipantsController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _zoneController = TextEditingController();
 
-  DateTime? selectedDate;
-  Venue? selectedVenue;
-  ListType selectedListType = ListType.open;
+  DateTime? _selectedDate;
+  int _maxParticipants = 10;
+  ListType _listType = ListType.open;
+  String? _selectedVenueId;
+
+  AgeRestrictionType _ageRestrictionType = AgeRestrictionType.none;
+  int? _ageRestrictionValue;
+
+  final List<Map<String, String>> _venues = [
+    {'id': 'v1', 'name': 'Struttura A'},
+    {'id': 'v2', 'name': 'Struttura B'},
+    {'id': 'v3', 'name': 'Struttura C'},
+  ];
+
+  void _selectDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: now,
+      lastDate: DateTime(now.year + 5),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
+
+  void _saveEvent() {
+    if (!_formKey.currentState!.validate() || _selectedDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Compila tutti i campi e seleziona la data')),
+      );
+      return;
+    }
+
+    final eventProvider = Provider.of<EventProvider>(context, listen: false);
+    final newEvent = Event(
+      id: const Uuid().v4(),
+      name: _nameController.text.trim(),
+      description: _descriptionController.text.trim(),
+      date: _selectedDate!,
+      zone: _zoneController.text.trim().isEmpty ? null : _zoneController.text.trim(),
+      fullAddress: null,
+      ownerEmail: 'owner@example.com',
+      maxParticipants: _maxParticipants,
+      ageRestrictionType: _ageRestrictionType,
+      ageRestrictionValue: _ageRestrictionValue,
+      participants: [],
+      pendingRequests: [],
+      listType: _listType,
+      venueId: _selectedVenueId,
+    );
+
+    eventProvider.addEvent(newEvent);
+    Navigator.pop(context);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final venueProvider = Provider.of<VenueProvider>(context);
-    final eventProvider = Provider.of<EventProvider>(context, listen: false);
-
     return Scaffold(
-      appBar: AppBar(title: const Text("Aggiungi Evento")),
+      appBar: AppBar(title: const Text('Aggiungi Evento')),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ListView(
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: "Nome evento"),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: descriptionController,
-              decoration: const InputDecoration(labelText: "Descrizione"),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: zoneController,
-              decoration: const InputDecoration(labelText: "Zona (visibile a tutti)"),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: maxParticipantsController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: "Numero massimo partecipanti"),
-            ),
-            const SizedBox(height: 10),
-            DropdownButton<ListType>(
-              value: selectedListType,
-              onChanged: (value) {
-                setState(() {
-                  selectedListType = value ?? ListType.open;
-                });
-              },
-              items: const [
-                DropdownMenuItem(
-                  value: ListType.open,
-                  child: Text('Lista aperta (partecipazione immediata)'),
-                ),
-                DropdownMenuItem(
-                  value: ListType.closed,
-                  child: Text('Lista chiusa (richiesta di partecipazione)'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            DropdownButton<Venue>(
-              hint: const Text("Seleziona struttura (opzionale)"),
-              value: selectedVenue,
-              items: venueProvider.venues
-                  .map((venue) => DropdownMenuItem<Venue>(
-                        value: venue,
-                        child: Text(venue.name),
-                      ))
-                  .toList(),
-              onChanged: (value) {
-                setState(() {
-                  selectedVenue = value;
-                });
-              },
-            ),
-
-            const SizedBox(height: 30),
-
-            // Bottone "Aggiungi Evento" isolato e in fondo
-            ElevatedButton(
-              onPressed: () async {
-                if (nameController.text.isEmpty ||
-                    descriptionController.text.isEmpty ||
-                    zoneController.text.isEmpty ||
-                    maxParticipantsController.text.isEmpty ||
-                    selectedDate == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Compila tutti i campi obbligatori")),
-                  );
-                  return;
-                }
-
-                final prefs = await SharedPreferences.getInstance();
-                final ownerEmail = prefs.getString('user_email');
-
-                if (ownerEmail == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Devi fare login per creare un evento")),
-                  );
-                  return;
-                }
-
-                final newEvent = Event(
-                  name: nameController.text,
-                  date: selectedDate!,
-                  people: 0, // Partecipanti iniziali sempre 0
-                  maxParticipants: int.parse(maxParticipantsController.text),
-                  description: descriptionController.text,
-                  zone: zoneController.text,
-                  listType: selectedListType,
-                  venue: selectedVenue,
-                  participants: [],
-                  pendingRequests: [],
-                  ownerEmail: ownerEmail,
-                );
-
-                eventProvider.addEvent(newEvent);
-                Navigator.pop(context);
-              },
-              child: const Text("Aggiungi Evento"),
-            ),
-
-            const SizedBox(height: 20),
-
-            ElevatedButton(
-              onPressed: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: DateTime.now(),
-                  firstDate: DateTime(2020),
-                  lastDate: DateTime(2035),
-                );
-                if (picked != null) {
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            children: [
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(labelText: 'Nome Evento'),
+                validator: (value) => value == null || value.isEmpty ? 'Inserisci nome evento' : null,
+              ),
+              TextFormField(
+                controller: _descriptionController,
+                decoration: const InputDecoration(labelText: 'Descrizione'),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  ElevatedButton(
+                    onPressed: _selectDate,
+                    child: Text(_selectedDate == null
+                        ? 'Seleziona data'
+                        : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<ListType>(
+                value: _listType,
+                decoration: const InputDecoration(labelText: 'Tipo lista partecipanti'),
+                items: ListType.values
+                    .map((lt) => DropdownMenuItem(
+                          value: lt,
+                          child: Text(lt == ListType.open ? 'Aperta' : 'Chiusa'),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _listType = value;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                keyboardType: TextInputType.number,
+                initialValue: _maxParticipants.toString(),
+                decoration: const InputDecoration(labelText: 'Max partecipanti'),
+                onChanged: (val) {
+                  final number = int.tryParse(val);
+                  if (number != null) {
+                    setState(() {
+                      _maxParticipants = number;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _zoneController,
+                decoration: const InputDecoration(labelText: 'Zona (opzionale)'),
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                value: _selectedVenueId,
+                decoration: const InputDecoration(labelText: 'Seleziona Struttura (opzionale)'),
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('Nessuna struttura')),
+                  ..._venues
+                      .map((v) => DropdownMenuItem(value: v['id'], child: Text(v['name']!)))
+                      .toList(),
+                ],
+                onChanged: (val) {
                   setState(() {
-                    selectedDate = picked;
+                    _selectedVenueId = val;
                   });
-                }
-              },
-              child: Text(selectedDate == null
-                  ? "Seleziona data"
-                  : "Data: ${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}"),
-            ),
-          ],
+                },
+              ),
+              const SizedBox(height: 10),
+
+              // Selezione tipo restrizione età
+              DropdownButtonFormField<AgeRestrictionType>(
+                value: _ageRestrictionType,
+                decoration: const InputDecoration(labelText: 'Tipo filtro età'),
+                items: AgeRestrictionType.values.map((type) {
+                  return DropdownMenuItem(
+                    value: type,
+                    child: Text(type == AgeRestrictionType.none
+                        ? 'Nessun filtro'
+                        : type == AgeRestrictionType.under
+                            ? 'Under'
+                            : 'Over'),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _ageRestrictionType = val;
+                    });
+                  }
+                },
+              ),
+
+              const SizedBox(height: 10),
+              if (_ageRestrictionType != AgeRestrictionType.none)
+                TextFormField(
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Valore età'),
+                  onChanged: (val) {
+                    final number = int.tryParse(val);
+                    setState(() {
+                      _ageRestrictionValue = number;
+                    });
+                  },
+                ),
+
+              const SizedBox(height: 20),
+
+              ElevatedButton(
+                onPressed: _saveEvent,
+                child: const Text('Salva'),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -4,6 +4,7 @@ import 'events_page.dart';
 import 'venues_page.dart';
 import 'add_event.dart';   // <-- Importa la pagina per aggiungere eventi
 import 'add_venue.dart';  // <-- Importa la nuova pagina per aggiungere strutture
+import 'profile_page.dart'; // <-- Importa la pagina profilo account (da creare)
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -32,6 +33,18 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Event Organizer'),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.account_circle),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfilePage()),
+              );
+            },
+            tooltip: 'Profilo',
+          ),
+        ],
       ),
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(

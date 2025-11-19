@@ -52,7 +52,6 @@ class _EventDetailPageState extends State<EventDetailPage> {
     setState(() {
       if (isParticipant) {
         event.participants.remove(userEmail);
-        // Anche se vuoi potresti togliere eventualmente richieste pendenti cancellate
         event.pendingRequests.remove(userEmail);
       } else {
         if (event.listType == ListType.open) {

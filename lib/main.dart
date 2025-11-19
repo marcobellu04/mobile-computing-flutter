@@ -20,7 +20,6 @@ void main() async {
         ChangeNotifierProvider(create: (_) => EventProvider()),
         ChangeNotifierProvider(create: (_) => VenueProvider()),
         ChangeNotifierProvider<MessageProvider>.value(value: messageProvider),
-        // Utilizza .value per riutilizzare l'istanza già caricata
       ],
       child: const MyApp(),
     ),
@@ -35,18 +34,27 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'GEOEVENT',
       debugShowCheckedModeBanner: false,
-     theme: ThemeData(
-  brightness: Brightness.dark,          // Imposta tema scuro globale
-  scaffoldBackgroundColor: Colors.black,  // Sfondo nero per tutte le pagine scaffold
-  primarySwatch: Colors.deepPurple,
-  fontFamily: 'TusJùo', // esempio font personalizzato, da aggiungere Fonts
-),
+      theme: ThemeData(
+        brightness: Brightness.dark,            // Tema scuro globale
+        scaffoldBackgroundColor: Colors.black, // Sfondo nero scaffold
+        primarySwatch: Colors.deepPurple,
+        fontFamily: 'Lato',                     // Imposta il font globale a Lato
+        textTheme: const TextTheme(
+          bodyMedium: TextStyle(fontWeight: FontWeight.normal),
+          bodyLarge: TextStyle(fontWeight: FontWeight.normal),
+          titleLarge: TextStyle(fontWeight: FontWeight.bold),
+          headlineMedium: TextStyle(fontWeight: FontWeight.bold),
+          headlineLarge: TextStyle(fontWeight: FontWeight.bold),
+          labelLarge: TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
 
       initialRoute: '/login',
       routes: {
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
         '/home': (context) => const HomeScreen(),
+        // aggiungi altre rotte se serve
       },
     );
   }
