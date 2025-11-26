@@ -1,22 +1,51 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:my_first_app/screens/user_profile_page.dart';
+import 'chat_page.dart';
 
 class ProfilePage extends StatelessWidget {
-  const ProfilePage({super.key});
+  final String currentUserEmail;
+  final String profileUserEmail;
+  final String profileUserName;
+
+  const ProfilePage({
+    super.key,
+    required this.currentUserEmail,
+    required this.profileUserEmail,
+    required this.profileUserName,
+  });
+
+  Future<bool> _showLogoutConfirmation(BuildContext context) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confermi di voler uscire?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annulla'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Esci'),
+          ),
+        ],
+      ),
+    );
+    return confirm ?? false;
+  }
 
   Future<void> _logout(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear(); // Pulisce tutti i dati salvati, inclusi quelli dell'utente
+    await prefs.remove('user_email');
 
-    // Naviga al login e rimuove tutte le pagine precedenti dallo stack
     Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Profilo')),
+      appBar: AppBar(title: Text('Profilo di $profileUserName')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: ListView(
@@ -32,6 +61,24 @@ class ProfilePage extends StatelessWidget {
                 );
               },
             ),
+            const Divider(),
+            if (currentUserEmail != profileUserEmail)
+              ElevatedButton.icon(
+                icon: const Icon(Icons.message),
+                label: const Text('Chatta con questo utente'),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ChatPage(
+                        userEmail: currentUserEmail,
+                        venueEmail: profileUserEmail,
+                        venueName: profileUserName,
+                      ),
+                    ),
+                  );
+                },
+              ),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.lock),
@@ -50,9 +97,12 @@ class ProfilePage extends StatelessWidget {
             const Divider(),
             ListTile(
               leading: const Icon(Icons.logout),
-              title: const Text('Logout'),
+              title: const Text('Esci'),
               onTap: () async {
-                await _logout(context);
+                final confirmed = await _showLogoutConfirmation(context);
+                if (confirmed) {
+                  await _logout(context);
+                }
               },
             ),
           ],

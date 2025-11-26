@@ -5,7 +5,9 @@ import '../models/event.dart';
 import '../providers/event_provider.dart';
 
 class AddEventScreen extends StatefulWidget {
-  const AddEventScreen({super.key});
+  final String ownerEmail;
+
+  const AddEventScreen({super.key, required this.ownerEmail});
 
   @override
   State<AddEventScreen> createState() => _AddEventScreenState();
@@ -62,7 +64,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
       date: _selectedDate!,
       zone: _zoneController.text.trim().isEmpty ? null : _zoneController.text.trim(),
       fullAddress: null,
-      ownerEmail: 'owner@example.com',
+      ownerEmail: widget.ownerEmail,
       maxParticipants: _maxParticipants,
       ageRestrictionType: _ageRestrictionType,
       ageRestrictionValue: _ageRestrictionValue,
@@ -161,8 +163,6 @@ class _AddEventScreenState extends State<AddEventScreen> {
                 },
               ),
               const SizedBox(height: 10),
-
-              // Selezione tipo restrizione età
               DropdownButtonFormField<AgeRestrictionType>(
                 value: _ageRestrictionType,
                 decoration: const InputDecoration(labelText: 'Tipo filtro età'),
@@ -184,7 +184,6 @@ class _AddEventScreenState extends State<AddEventScreen> {
                   }
                 },
               ),
-
               const SizedBox(height: 10),
               if (_ageRestrictionType != AgeRestrictionType.none)
                 TextFormField(
@@ -197,13 +196,11 @@ class _AddEventScreenState extends State<AddEventScreen> {
                     });
                   },
                 ),
-
               const SizedBox(height: 20),
-
               ElevatedButton(
                 onPressed: _saveEvent,
                 child: const Text('Salva'),
-              ),
+              )
             ],
           ),
         ),

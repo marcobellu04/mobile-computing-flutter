@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import 'events_page.dart';
 import 'venues_page.dart';
-import 'add_event.dart';   // <-- Importa la pagina per aggiungere eventi
-import 'add_venue.dart';  // <-- Importa la nuova pagina per aggiungere strutture
-import 'profile_page.dart'; // <-- Importa la pagina profilo account (da creare)
+import 'profile_page.dart';
+import 'chat_list_page.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final String currentUserEmail;
+
+  const HomeScreen({super.key, required this.currentUserEmail});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -16,10 +17,21 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  final List<Widget> _pages = [
+  late final List<Widget> _pages;
+
+@override
+void initState() {
+  super.initState();
+  _pages = [
     const EventsPage(),
     const VenuesPage(),
+    ProfilePage(
+      currentUserEmail: widget.currentUserEmail,
+      profileUserEmail: widget.currentUserEmail,
+      profileUserName: 'Il tuo nome o username', // sostituisci con valore reale
+    ),
   ];
+}
 
   void _onItemTapped(int index) {
     setState(() {
@@ -27,23 +39,25 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  void _navigateToChat() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ChatListPage(currentUserEmail: widget.currentUserEmail),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Event Organizer'),
-        centerTitle: true,
+        title: const Text('GeoEvent'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.account_circle),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ProfilePage()),
-              );
-            },
-            tooltip: 'Profilo',
-          ),
+            icon: const Icon(Icons.chat),
+            onPressed: _navigateToChat,
+            tooltip: 'Chat',
+          )
         ],
       ),
       body: _pages[_selectedIndex],
@@ -51,33 +65,10 @@ class _HomeScreenState extends State<HomeScreen> {
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.event),
-            label: 'Eventi',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.location_city),
-            label: 'Strutture',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.event), label: 'Eventi'),
+          BottomNavigationBarItem(icon: Icon(Icons.location_city), label: 'Strutture'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profilo'),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          if (_selectedIndex == 0) {
-            // Aggiungi Evento
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const AddEventScreen()),
-            ).then((_) => setState(() {}));
-          } else if (_selectedIndex == 1) {
-            // Aggiungi Struttura
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const AddVenueScreen()),
-            ).then((_) => setState(() {}));
-          }
-        },
-        child: const Icon(Icons.add),
       ),
     );
   }

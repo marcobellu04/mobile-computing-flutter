@@ -3,25 +3,37 @@ class Message {
   final String receiverEmail;
   final String text;
   final DateTime timestamp;
+  final String? senderName;
+  final String? receiverName;
 
   Message({
     required this.senderEmail,
     required this.receiverEmail,
     required this.text,
     required this.timestamp,
+    this.senderName,
+    this.receiverName,
   });
 
-  Map<String, dynamic> toMap() => {
-    'senderEmail': senderEmail,
-    'receiverEmail': receiverEmail,
-    'text': text,
-    'timestamp': timestamp.toIso8601String(),
-  };
+  factory Message.fromMap(Map<String, dynamic> map) {
+    return Message(
+      senderEmail: map['senderEmail'] as String,
+      receiverEmail: map['receiverEmail'] as String,
+      text: map['text'] as String,
+      timestamp: DateTime.parse(map['timestamp'] as String),
+      senderName: map['senderName'] as String?,       // nuovo campo opzionale
+      receiverName: map['receiverName'] as String?,   // nuovo campo opzionale
+    );
+  }
 
-  factory Message.fromMap(Map<String, dynamic> map) => Message(
-    senderEmail: map['senderEmail'],
-    receiverEmail: map['receiverEmail'],
-    text: map['text'],
-    timestamp: DateTime.parse(map['timestamp']),
-  );
+  Map<String, dynamic> toMap() {
+    return {
+      'senderEmail': senderEmail,
+      'receiverEmail': receiverEmail,
+      'text': text,
+      'timestamp': timestamp.toIso8601String(),
+      'senderName': senderName,
+      'receiverName': receiverName,
+    };
+  }
 }

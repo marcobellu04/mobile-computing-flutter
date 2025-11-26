@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
-import 'package:my_first_app/models/user.dart';
+import '../models/user.dart';
 
 class UserProfilePage extends StatefulWidget {
   const UserProfilePage({super.key});
@@ -13,7 +13,6 @@ class UserProfilePage extends StatefulWidget {
 
 class _UserProfilePageState extends State<UserProfilePage> {
   final _formKey = GlobalKey<FormState>();
-  
   late TextEditingController _nameController;
   late TextEditingController _surnameController;
   late TextEditingController _emailController;
@@ -21,16 +20,27 @@ class _UserProfilePageState extends State<UserProfilePage> {
   String? _gender;
 
   bool _loading = true;
+  String? _currentUserEmail;
 
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    _loadUserEmailAndData();
   }
 
-  Future<void> _loadUserData() async {
+  Future<void> _loadUserEmailAndData() async {
     final prefs = await SharedPreferences.getInstance();
-    final jsonString = prefs.getString('user_data');
+    final email = prefs.getString('user_email');
+    setState(() {
+      _currentUserEmail = email;
+    });
+
+    if (email == null) {
+      _initEmptyControllers();
+      return;
+    }
+
+    final jsonString = prefs.getString('user_data_$email');
     if (jsonString != null) {
       final Map<String, dynamic> userMap = jsonDecode(jsonString);
       final user = User.fromMap(userMap);
@@ -43,35 +53,44 @@ class _UserProfilePageState extends State<UserProfilePage> {
         _loading = false;
       });
     } else {
-      // Default controllers if no data saved
-      setState(() {
-        _nameController = TextEditingController();
-        _surnameController = TextEditingController();
-        _emailController = TextEditingController();
-        _birthDate = null;
-        _gender = null;
-        _loading = false;
-      });
+      _initEmptyControllers();
     }
   }
 
+  void _initEmptyControllers() {
+    setState(() {
+      _nameController = TextEditingController();
+      _surnameController = TextEditingController();
+      _emailController = TextEditingController();
+      _birthDate = null;
+      _gender = null;
+      _loading = false;
+    });
+  }
+
   Future<void> _saveUserData() async {
-    if (_formKey.currentState!.validate() && _birthDate != null && _gender != null) {
+    if (_formKey.currentState!.validate() &&
+        _birthDate != null &&
+        _gender != null &&
+        _currentUserEmail != null) {
       final user = User(
         name: _nameController.text.trim(),
         surname: _surnameController.text.trim(),
-        email: _emailController.text.trim(),
+        email: _currentUserEmail!,
         birthDate: _birthDate!,
         gender: _gender!,
       );
       final prefs = await SharedPreferences.getInstance();
       final jsonString = jsonEncode(user.toMap());
-      await prefs.setString('user_data', jsonString);
+      await prefs.setString('user_data_$_currentUserEmail', jsonString);
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profilo salvato con successo')));
+        const SnackBar(content: Text('Profilo salvato con successo')),
+      );
+      if (Navigator.canPop(context)) Navigator.pop(context, true);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Compila tutti i campi richiesta')));
+        const SnackBar(content: Text('Compila tutti i campi richiesta')),
+      );
     }
   }
 
@@ -83,19 +102,16 @@ class _UserProfilePageState extends State<UserProfilePage> {
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
     );
-    if (picked != null) {
-      setState(() {
-        _birthDate = picked;
-      });
-    }
+    if (picked != null) setState(() => _birthDate = picked);
   }
 
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
-
     return Scaffold(
       appBar: AppBar(title: const Text('Profilo utente')),
       body: Padding(
@@ -107,24 +123,27 @@ class _UserProfilePageState extends State<UserProfilePage> {
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: 'Nome'),
-                validator: (value) => (value == null || value.isEmpty) ? 'Inserisci il nome' : null,
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'Inserisci il nome' : null,
               ),
               TextFormField(
                 controller: _surnameController,
                 decoration: const InputDecoration(labelText: 'Cognome'),
-                validator: (value) => (value == null || value.isEmpty) ? 'Inserisci il cognome' : null,
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'Inserisci il cognome' : null,
               ),
               TextFormField(
                 controller: _emailController,
                 decoration: const InputDecoration(labelText: 'Email'),
-                keyboardType: TextInputType.emailAddress,
-                validator: (value) => (value == null || value.isEmpty) ? 'Inserisci l\'email' : null,
+                enabled: false,
               ),
               const SizedBox(height: 20),
               ListTile(
-                title: Text(_birthDate == null
-                    ? 'Seleziona data di nascita'
-                    : 'Data di nascita: ${_birthDate!.day}/${_birthDate!.month}/${_birthDate!.year}'),
+                title: Text(
+                  _birthDate == null
+                      ? 'Seleziona data di nascita'
+                      : 'Data di nascita: ${_birthDate!.day}/${_birthDate!.month}/${_birthDate!.year}',
+                ),
                 trailing: const Icon(Icons.calendar_today),
                 onTap: _pickBirthDate,
               ),
@@ -133,14 +152,12 @@ class _UserProfilePageState extends State<UserProfilePage> {
                 decoration: const InputDecoration(labelText: 'Genere'),
                 value: _gender,
                 items: ['male', 'female', 'other']
-                    .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                    .map((g) =>
+                        DropdownMenuItem(value: g, child: Text(g)))
                     .toList(),
-                onChanged: (val) {
-                  setState(() {
-                    _gender = val;
-                  });
-                },
-                validator: (value) => value == null ? 'Seleziona un genere' : null,
+                onChanged: (val) => setState(() => _gender = val),
+                validator: (v) =>
+                    v == null ? 'Seleziona un genere' : null,
               ),
               const SizedBox(height: 30),
               ElevatedButton(

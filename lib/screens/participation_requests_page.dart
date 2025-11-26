@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/event.dart';
 import '../providers/event_provider.dart';
+import '../screens/other_user_profile_page.dart';
 
 class ParticipationRequestsPage extends StatefulWidget {
   final Event event;
@@ -40,15 +41,13 @@ class _ParticipationRequestsPageState extends State<ParticipationRequestsPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Limite partecipanti raggiunto')),
           );
-          // Se non può accettare, mantieni l’utente in pending o gestisci diversamente
-          // Qui la rimuoviamo comunque
+          // Mantieni o rimuovi la richiesta a seconda della logica da te scelta
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Richiesta di $userEmail rifiutata')),
         );
       }
-      // Aggiorna evento nel provider e callback
       final eventProvider = Provider.of<EventProvider>(context, listen: false);
       eventProvider.updateEvent(event);
       widget.onEventUpdated(event);
@@ -70,7 +69,26 @@ class _ParticipationRequestsPageState extends State<ParticipationRequestsPage> {
                 return Card(
                   margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
                   child: ListTile(
-                    title: Text(userEmail),
+                    title: GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => OtherUserProfilePage(
+                              userEmail: userEmail,
+                              userName: userEmail.split('@')[0], // Cambia con il nome reale se disponibile
+                            ),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        userEmail,
+                        style: const TextStyle(
+                          decoration: TextDecoration.underline,
+                          color: Colors.lightBlueAccent,
+                        ),
+                      ),
+                    ),
                     subtitle: const Text('Richiesta di partecipazione'),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,

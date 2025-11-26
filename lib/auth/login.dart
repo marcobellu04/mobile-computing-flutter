@@ -1,47 +1,92 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../screens/user_profile_page.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  _LoginScreenState createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  Future<List<Map<String, dynamic>>> _getUsers() async {
+    final prefs = await SharedPreferences.getInstance();
+    final usersString = prefs.getString('users');
+    if (usersString == null) return [];
+    return List<Map<String, dynamic>>.from(jsonDecode(usersString));
+  }
+
+  Future<void> _saveLoggedInUser(String email) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_email', email);
+  }
+
+  Future<bool> _profileIncomplete(String email) async {
+    final prefs = await SharedPreferences.getInstance();
+    final userDataString = prefs.getString('user_data_$email');
+    if (userDataString == null) return true;
+    try {
+      final userMap = jsonDecode(userDataString);
+      if (userMap['name'] != null &&
+          userMap['name'].toString().isNotEmpty &&
+          userMap['surname'] != null &&
+          userMap['surname'].toString().isNotEmpty &&
+          userMap['email'] != null &&
+          userMap['email'].toString().isNotEmpty &&
+          userMap['birthDate'] != null &&
+          userMap['gender'] != null) {
+        return false;
+      }
+    } catch (_) {}
+    return true;
+  }
 
   Future<void> _login() async {
-    final emailInput = emailController.text.trim();
-    final passwordInput = passwordController.text;
-
-    if (emailInput.isEmpty || passwordInput.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Compila tutti i campi')),
-      );
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    if (email.isEmpty || password.isEmpty) {
+      _showError('Compila tutti i campi');
       return;
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    final savedEmail = prefs.getString('user_email');
-    final savedPassword = prefs.getString('user_password');
+    final users = await _getUsers();
+    final user = users.firstWhere(
+      (u) => u['email'] == email && u['password'] == password,
+      orElse: () => {},
+    );
 
-    if (savedEmail == null || savedPassword == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nessun utente registrato')),
-      );
+    if (user.isEmpty) {
+      _showError('Email o password errati');
       return;
     }
 
-    if (emailInput == savedEmail && passwordInput == savedPassword) {
-      await prefs.setBool('is_logged_in', true);
-      Navigator.pushReplacementNamed(context, '/home'); // Naviga alla home
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email o password errate')),
+    await _saveLoggedInUser(email);
+
+    if (await _profileIncomplete(email)) {
+      if (!mounted) return;
+      final completed = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(builder: (_) => const UserProfilePage()),
       );
+      if (completed != true) {
+        _showError('Devi completare il profilo per continuare');
+        return;
+      }
     }
+
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(context, '/home');
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -53,13 +98,11 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Column(
           children: [
             TextField(
-              controller: emailController,
+              controller: _emailController,
               decoration: const InputDecoration(labelText: 'Email'),
-              keyboardType: TextInputType.emailAddress,
             ),
-            const SizedBox(height: 10),
             TextField(
-              controller: passwordController,
+              controller: _passwordController,
               decoration: const InputDecoration(labelText: 'Password'),
               obscureText: true,
             ),

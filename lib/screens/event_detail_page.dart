@@ -3,8 +3,10 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/event.dart';
+import '../screens/other_user_profile_page.dart';
 import '../screens/participation_requests_page.dart';
 import '../providers/event_provider.dart';
+import '../providers/message_provider.dart';
 
 class EventDetailPage extends StatefulWidget {
   final Event event;
@@ -30,6 +32,11 @@ class _EventDetailPageState extends State<EventDetailPage> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       userEmail = prefs.getString('user_email');
+      // Aggiorna anche il provider messaggi con l'utente corrente
+      if (userEmail != null) {
+        final messageProvider = Provider.of<MessageProvider>(context, listen: false);
+        messageProvider.setCurrentUserEmail(userEmail!);
+      }
     });
   }
 
@@ -95,6 +102,9 @@ class _EventDetailPageState extends State<EventDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final messageProvider = Provider.of<MessageProvider>(context);
+    final currentUserEmail = messageProvider.currentUserEmail;
+
     return Scaffold(
       appBar: AppBar(title: Text(event.name)),
       body: Padding(
@@ -108,7 +118,34 @@ class _EventDetailPageState extends State<EventDetailPage> {
             const SizedBox(height: 10),
             Text('Descrizione: ${event.description ?? 'Nessuna descrizione'}'),
             const SizedBox(height: 10),
-            Text('Zona: ${event.zone ?? 'Zona non specificata'}'),
+            InkWell(
+              onTap: () {
+                if (event.ownerEmail != currentUserEmail) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => OtherUserProfilePage(
+                        userEmail: event.ownerEmail,
+                        userName: event.ownerEmail.split('@').first, // O vero nome se disponibile
+                      ),
+                    ),
+                  );
+                }
+              },
+              child: Text(
+                "Creatore: ${event.ownerEmail.split('@').first}",
+                style: TextStyle(
+                  decoration: event.ownerEmail != currentUserEmail
+                      ? TextDecoration.underline
+                      : TextDecoration.none,
+                  color: event.ownerEmail != currentUserEmail
+                      ? Colors.lightBlueAccent
+                      : Colors.white70,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ),
             const SizedBox(height: 10),
             Text(
               "Partecipanti: ${event.participants.length} / ${event.maxParticipants}",
@@ -127,17 +164,37 @@ class _EventDetailPageState extends State<EventDetailPage> {
               ),
             ] else ...[
               ElevatedButton(
-                onPressed: userEmail == null ? null : _toggleParticipation,
+                onPressed: userEmail == null
+                    ? null
+                    : userEmail == event.ownerEmail ? null : _toggleParticipation,
                 child: Text(
                   isParticipant
                       ? 'Non partecipo più'
                       : event.listType == ListType.open
-                          ? 'Partecipo'
-                          : hasPendingRequest
-                              ? 'Richiesta inviata'
-                              : 'Partecipo',
+                      ? 'Partecipo'
+                      : hasPendingRequest
+                      ? 'Richiesta inviata'
+                      : 'Partecipo',
                 ),
               ),
+              const SizedBox(height: 12),
+              if (currentUserEmail != null &&
+                  currentUserEmail != event.ownerEmail)
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.message),
+                  label: const Text('Chatta con il creatore'),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => OtherUserProfilePage(
+                          userEmail: event.ownerEmail,
+                          userName: event.ownerEmail.split('@').first,
+                        ),
+                      ),
+                    );
+                  },
+                ),
             ],
           ],
         ),

@@ -7,15 +7,15 @@ class Event {
   final String? description;
   final DateTime date;
   final String? zone; // zona libera
-  final String? fullAddress;
-  final String ownerEmail;
-  final int maxParticipants;
+  final String? fullAddress; //indirizzo
+  final String ownerEmail;   //identificativo creatore evento
+  final int maxParticipants;   //n.max partecipanti
   final AgeRestrictionType ageRestrictionType; // nuovo tipo età
-  final int? ageRestrictionValue; // valore età (es. 30)
+  final int? ageRestrictionValue; // valore età
   final List<String> participants;
-  final List<String> pendingRequests;
-  final ListType listType;
-  final String? venueId;
+  final List<String> pendingRequests; //richiesta di partecipazione
+  final ListType listType;   //aperta o chiusa
+  final String? venueId;      //collegamento con struttura
 
   Event({
     required this.id,

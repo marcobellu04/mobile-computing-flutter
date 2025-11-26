@@ -33,6 +33,8 @@ class _ChatPageState extends State<ChatPage> {
       receiverEmail: widget.venueEmail,
       text: text,
       timestamp: DateTime.now(),
+      senderName: null,
+      receiverName: null,
     );
 
     messageProvider.sendMessage(newMessage);
