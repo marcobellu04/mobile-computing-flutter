@@ -15,7 +15,6 @@ import 'event_detail_page.dart';
 import '../widgets/rounded_card.dart';
 import '../widgets/filter_zone.dart';
 import '../widgets/filter_age.dart';
-import 'chat_page.dart';
 import 'add_event.dart';
 
 class EventsPage extends StatefulWidget {
@@ -128,37 +127,6 @@ class _EventsPageState extends State<EventsPage> {
     setState(() {
       _showFilterMenu = !_showFilterMenu;
     });
-  }
-
-  Widget eventCreatorChatButton(Event event) {
-    if (currentUser == null) return const SizedBox.shrink();
-
-    if (currentUser!.email == event.ownerEmail) return const SizedBox.shrink();
-
-    final creatorDisplayName = event.ownerEmail.split('@').first;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(creatorDisplayName, style: const TextStyle(color: Colors.white70)),
-        IconButton(
-          icon: const Icon(Icons.message, color: Colors.white),
-          tooltip: 'Chatta con il creatore evento',
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ChatPage(
-                  userEmail: currentUser!.email,
-                  venueEmail: event.ownerEmail,
-                  venueName: creatorDisplayName,
-                ),
-              ),
-            );
-          },
-        ),
-      ],
-    );
   }
 
   @override
@@ -319,8 +287,6 @@ class _EventsPageState extends State<EventsPage> {
                                       "${e.ageRestrictionType == AgeRestrictionType.over ? 'Età min' : 'Età max'}: ${e.ageRestrictionValue}",
                                       style: const TextStyle(color: Colors.white70),
                                     ),
-                                  const SizedBox(height: 10),
-                                  eventCreatorChatButton(e),
                                 ],
                               ),
                             ),
@@ -333,23 +299,29 @@ class _EventsPageState extends State<EventsPage> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final prefs = await SharedPreferences.getInstance();
-          final currentUserEmail = prefs.getString('user_email') ?? '';
-          if (currentUserEmail.isEmpty) {
-            // eventualmente mostra messaggio errore accesso
-            return;
-          }
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => AddEventScreen(ownerEmail: currentUserEmail),
-            ),
-          );
-        },
-        child: const Icon(Icons.add),
-        tooltip: 'Crea nuovo evento',
+  onPressed: () async {
+    final prefs = await SharedPreferences.getInstance();
+    final currentUserEmail = prefs.getString('user_email') ?? '';
+
+    if (currentUserEmail.isEmpty || currentUser == null) {
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddEventScreen(
+          ownerEmail: currentUserEmail,
+          ownerName: currentUser!.name,       // nome reale dal profilo
+          ownerSurname: currentUser!.surname, // cognome reale dal profilo
+        ),
       ),
+    );
+  },
+  child: const Icon(Icons.add),
+  tooltip: 'Crea nuovo evento',
+),
+
     );
   }
 }

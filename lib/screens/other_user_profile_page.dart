@@ -8,11 +8,13 @@ import 'chat_page.dart';
 class OtherUserProfilePage extends StatefulWidget {
   final String userEmail;
   final String userName;
+  final String userSurname; // nuovo parametro per cognome
 
   const OtherUserProfilePage({
     super.key,
     required this.userEmail,
     required this.userName,
+    this.userSurname = '',
   });
 
   @override
@@ -23,11 +25,14 @@ class _OtherUserProfilePageState extends State<OtherUserProfilePage> {
   User? _userDetails;
 
   Future<void> _loadUserDetails() async {
+    // In un caso reale potresti caricare dati completi da backend o provider utenti
     setState(() {
-      _userDetails = User.publicProfile(
-        name: widget.userName,
-        surname: '',
+      _userDetails = User(
         email: widget.userEmail,
+        name: widget.userName,
+        surname: widget.userSurname,
+        birthDate: DateTime(1990, 6, 15), // valore di default o reale
+        gender: 'male', // opzionale
       );
     });
   }
@@ -59,6 +64,8 @@ class _OtherUserProfilePageState extends State<OtherUserProfilePage> {
             Text('Nome: ${_userDetails!.name}'),
             const SizedBox(height: 8),
             Text('Cognome: ${_userDetails!.surname}'),
+            const SizedBox(height: 8),
+            Text('Età: ${_userDetails!.age}'),
             const SizedBox(height: 8),
             Text('Email: ${_userDetails!.email}'),
             const SizedBox(height: 24),

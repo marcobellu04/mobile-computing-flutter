@@ -1,4 +1,5 @@
 enum ListType { open, closed }
+
 enum AgeRestrictionType { none, under, over }
 
 class Event {
@@ -6,53 +7,56 @@ class Event {
   final String name;
   final String? description;
   final DateTime date;
-  final String? zone; // zona libera
-  final String? fullAddress; //indirizzo
-  final String ownerEmail;   //identificativo creatore evento
-  final int maxParticipants;   //n.max partecipanti
-  final AgeRestrictionType ageRestrictionType; // nuovo tipo età
-  final int? ageRestrictionValue; // valore età
+  final String ownerEmail;
+  final String ownerName;
+  final String ownerSurname;
+  final int maxParticipants;
   final List<String> participants;
-  final List<String> pendingRequests; //richiesta di partecipazione
-  final ListType listType;   //aperta o chiusa
-  final String? venueId;      //collegamento con struttura
+  final List<String> pendingRequests;
+  final ListType listType;
+  final String? venueId;
+  final String? fullAddress;
+  final AgeRestrictionType ageRestrictionType;
+  final int? ageRestrictionValue;
+  final String? zone;
 
   Event({
     required this.id,
     required this.name,
     this.description,
     required this.date,
-    this.zone,
-    this.fullAddress,
     required this.ownerEmail,
+    required this.ownerName,
+    required this.ownerSurname,
     required this.maxParticipants,
-    this.ageRestrictionType = AgeRestrictionType.none,
-    this.ageRestrictionValue,
-    List<String>? participants,
-    List<String>? pendingRequests,
+    this.participants = const [],
+    this.pendingRequests = const [],
     required this.listType,
     this.venueId,
-  })  : participants = participants ?? [],
-        pendingRequests = pendingRequests ?? [];
+    this.fullAddress,
+    this.ageRestrictionType = AgeRestrictionType.none,
+    this.ageRestrictionValue,
+    this.zone,
+  });
 
   factory Event.fromMap(Map<String, dynamic> map) {
     return Event(
-      id: map['id'] as String,
-      name: map['name'] as String,
-      description: map['description'] as String?,
-      date: DateTime.parse(map['date'] as String),
-      zone: map['zone'] as String?,
-      fullAddress: map['fullAddress'] as String?,
-      ownerEmail: map['ownerEmail'] as String,
-      maxParticipants: map['maxParticipants'] as int,
-      ageRestrictionType: map.containsKey('ageRestrictionType')
-          ? AgeRestrictionType.values[map['ageRestrictionType'] as int]
-          : AgeRestrictionType.none,
-      ageRestrictionValue: map['ageRestrictionValue'] as int?,
+      id: map['id'],
+      name: map['name'],
+      description: map['description'],
+      date: DateTime.parse(map['date']),
+      ownerEmail: map['ownerEmail'],
+      ownerName: map['ownerName'] ?? '',
+      ownerSurname: map['ownerSurname'] ?? '',
+      maxParticipants: map['maxParticipants'],
       participants: List<String>.from(map['participants'] ?? []),
       pendingRequests: List<String>.from(map['pendingRequests'] ?? []),
-      listType: ListType.values[map['listType'] as int],
-      venueId: map['venueId'] as String?,
+      listType: ListType.values[map['listType']],
+      venueId: map['venueId'],
+      fullAddress: map['fullAddress'],
+      ageRestrictionType: AgeRestrictionType.values[map['ageRestrictionType'] ?? 0],
+      ageRestrictionValue: map['ageRestrictionValue'],
+      zone: map['zone'],
     );
   }
 
@@ -62,16 +66,18 @@ class Event {
       'name': name,
       'description': description,
       'date': date.toIso8601String(),
-      'zone': zone,
-      'fullAddress': fullAddress,
       'ownerEmail': ownerEmail,
+      'ownerName': ownerName,
+      'ownerSurname': ownerSurname,
       'maxParticipants': maxParticipants,
-      'ageRestrictionType': ageRestrictionType.index,
-      'ageRestrictionValue': ageRestrictionValue,
       'participants': participants,
       'pendingRequests': pendingRequests,
       'listType': listType.index,
       'venueId': venueId,
+      'fullAddress': fullAddress,
+      'ageRestrictionType': ageRestrictionType.index,
+      'ageRestrictionValue': ageRestrictionValue,
+      'zone': zone,
     };
   }
 }

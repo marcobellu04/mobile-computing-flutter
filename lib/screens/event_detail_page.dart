@@ -32,7 +32,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       userEmail = prefs.getString('user_email');
-      // Aggiorna anche il provider messaggi con l'utente corrente
+      // Aggiorna provider messaggi con utente loggato
       if (userEmail != null) {
         final messageProvider = Provider.of<MessageProvider>(context, listen: false);
         messageProvider.setCurrentUserEmail(userEmail!);
@@ -126,7 +126,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
                     MaterialPageRoute(
                       builder: (_) => OtherUserProfilePage(
                         userEmail: event.ownerEmail,
-                        userName: event.ownerEmail.split('@').first, // O vero nome se disponibile
+                        userName: event.ownerEmail.split('@').first,
                       ),
                     ),
                   );
@@ -164,22 +164,21 @@ class _EventDetailPageState extends State<EventDetailPage> {
               ),
             ] else ...[
               ElevatedButton(
-                onPressed: userEmail == null
+                onPressed: userEmail == null || userEmail == event.ownerEmail
                     ? null
-                    : userEmail == event.ownerEmail ? null : _toggleParticipation,
+                    : _toggleParticipation,
                 child: Text(
                   isParticipant
                       ? 'Non partecipo più'
                       : event.listType == ListType.open
-                      ? 'Partecipo'
-                      : hasPendingRequest
-                      ? 'Richiesta inviata'
-                      : 'Partecipo',
+                          ? 'Partecipo'
+                          : hasPendingRequest
+                              ? 'Richiesta inviata'
+                              : 'Partecipo',
                 ),
               ),
               const SizedBox(height: 12),
-              if (currentUserEmail != null &&
-                  currentUserEmail != event.ownerEmail)
+              if (currentUserEmail != null && currentUserEmail != event.ownerEmail)
                 ElevatedButton.icon(
                   icon: const Icon(Icons.message),
                   label: const Text('Chatta con il creatore'),

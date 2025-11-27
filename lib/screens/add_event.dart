@@ -6,8 +6,15 @@ import '../providers/event_provider.dart';
 
 class AddEventScreen extends StatefulWidget {
   final String ownerEmail;
+  final String ownerName;    // Nuovo campo nome proprietario
+  final String ownerSurname; // Nuovo campo cognome proprietario
 
-  const AddEventScreen({super.key, required this.ownerEmail});
+  const AddEventScreen({
+    super.key,
+    required this.ownerEmail,
+    required this.ownerName,
+    required this.ownerSurname,
+  });
 
   @override
   State<AddEventScreen> createState() => _AddEventScreenState();
@@ -65,6 +72,8 @@ class _AddEventScreenState extends State<AddEventScreen> {
       zone: _zoneController.text.trim().isEmpty ? null : _zoneController.text.trim(),
       fullAddress: null,
       ownerEmail: widget.ownerEmail,
+      ownerName: widget.ownerName,
+      ownerSurname: widget.ownerSurname,
       maxParticipants: _maxParticipants,
       ageRestrictionType: _ageRestrictionType,
       ageRestrictionValue: _ageRestrictionValue,
