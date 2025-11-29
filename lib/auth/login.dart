@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../screens/user_profile_page.dart';
+import '../screens/home.dart'; // <-- aggiungi questo import (percorso in base al tuo progetto)
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -28,26 +28,6 @@ class _LoginScreenState extends State<LoginScreen> {
     await prefs.setString('user_email', email);
   }
 
-  Future<bool> _profileIncomplete(String email) async {
-    final prefs = await SharedPreferences.getInstance();
-    final userDataString = prefs.getString('user_data_$email');
-    if (userDataString == null) return true;
-    try {
-      final userMap = jsonDecode(userDataString);
-      if (userMap['name'] != null &&
-          userMap['name'].toString().isNotEmpty &&
-          userMap['surname'] != null &&
-          userMap['surname'].toString().isNotEmpty &&
-          userMap['email'] != null &&
-          userMap['email'].toString().isNotEmpty &&
-          userMap['birthDate'] != null &&
-          userMap['gender'] != null) {
-        return false;
-      }
-    } catch (_) {}
-    return true;
-  }
-
   Future<void> _login() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
@@ -69,55 +49,146 @@ class _LoginScreenState extends State<LoginScreen> {
 
     await _saveLoggedInUser(email);
 
-    if (await _profileIncomplete(email)) {
-      if (!mounted) return;
-      final completed = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(builder: (_) => const UserProfilePage()),
-      );
-      if (completed != true) {
-        _showError('Devi completare il profilo per continuare');
-        return;
-      }
-    }
-
     if (!mounted) return;
-    Navigator.pushReplacementNamed(context, '/home');
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => HomeScreen(currentUserEmail: email),
+      ),
+      (route) => false,
+    );
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: 'Email'),
+      backgroundColor: const Color(0xFFF5EFE8),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Align(
+                  alignment: Alignment.topRight,
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/register');
+                    },
+                    child: const Text(
+                      'Sign up',
+                      style: TextStyle(color: Colors.black87),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                const Text(
+                  'Log in',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                const Text(
+                  'Your Email',
+                  style: TextStyle(fontSize: 14, color: Colors.black87),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  style: const TextStyle(color: Colors.black87),
+                  decoration: const InputDecoration(
+                    hintText: 'hello@gmail.com',
+                    hintStyle: TextStyle(color: Colors.black38),
+                    border: UnderlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Password',
+                  style: TextStyle(fontSize: 14, color: Colors.black87),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _passwordController,
+                  obscureText: true,
+                  style: const TextStyle(color: Colors.black87),
+                  decoration: const InputDecoration(
+                    hintText: '••••••••',
+                    hintStyle: TextStyle(color: Colors.black38),
+                    border: UnderlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: _login,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black87,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(26),
+                      ),
+                      elevation: 4,
+                    ),
+                    child: const Text(
+                      'Log in',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Center(
+                  child: Text(
+                    'Or sign in with',
+                    style: TextStyle(color: Colors.black54),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                    ),
+                    onPressed: () {
+                      // TODO: integrazione accesso con Google
+                    },
+                    icon: const Icon(Icons.g_mobiledata, size: 28),
+                    label: const Text(
+                      'Continue with Google',
+                      style: TextStyle(color: Colors.black87),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Center(
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/register');
+                    },
+                    child: const Text(
+                      'Non hai un account? Registrati',
+                      style: TextStyle(color: Colors.black87),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            TextField(
-              controller: _passwordController,
-              decoration: const InputDecoration(labelText: 'Password'),
-              obscureText: true,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _login,
-              child: const Text('Accedi'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/register');
-              },
-              child: const Text('Non hai un account? Registrati'),
-            ),
-          ],
+          ),
         ),
       ),
     );

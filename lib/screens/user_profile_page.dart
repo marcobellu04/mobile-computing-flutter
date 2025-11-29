@@ -132,11 +132,15 @@ class _UserProfilePageState extends State<UserProfilePage> {
                 validator: (v) =>
                     v == null || v.isEmpty ? 'Inserisci il cognome' : null,
               ),
-              TextFormField(
-                controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
-                enabled: false,
-              ),
+             TextFormField(
+  controller: _emailController,
+  decoration: const InputDecoration(labelText: 'Email'),
+  keyboardType: TextInputType.emailAddress,
+ 
+  readOnly: true,
+  
+),
+
               const SizedBox(height: 20),
               ListTile(
                 title: Text(
