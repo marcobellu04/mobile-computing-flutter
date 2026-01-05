@@ -5,6 +5,8 @@ import 'venues_page.dart';
 import 'add_event.dart';   // <-- Importa la pagina per aggiungere eventi
 import 'add_venue.dart';  // <-- Importa la nuova pagina per aggiungere strutture
 import 'profile_page.dart'; // <-- Importa la pagina profilo account (da creare)
+import 'map_screen.dart';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,9 +19,11 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
   final List<Widget> _pages = [
-    const EventsPage(),
-    const VenuesPage(),
-  ];
+  const EventsPage(),
+  const VenuesPage(),
+  const MapScreen(),
+];
+
 
   void _onItemTapped(int index) {
     setState(() {
@@ -51,15 +55,20 @@ class _HomeScreenState extends State<HomeScreen> {
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.event),
-            label: 'Eventi',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.location_city),
-            label: 'Strutture',
-          ),
-        ],
+  BottomNavigationBarItem(
+    icon: Icon(Icons.event),
+    label: 'Eventi',
+  ),
+  BottomNavigationBarItem(
+    icon: Icon(Icons.place),
+    label: 'Strutture',
+  ),
+  BottomNavigationBarItem(
+    icon: Icon(Icons.map),
+    label: 'Mappa',
+  ),
+],
+
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {

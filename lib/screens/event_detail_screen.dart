@@ -3,21 +3,20 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../models/event.dart';
 import '../providers/event_provider.dart';
 
-class EventDetailPage extends StatefulWidget {
+class EventDetailScreen extends StatefulWidget {
   final Event event;
 
-  const EventDetailPage({super.key, required this.event});
+  const EventDetailScreen({super.key, required this.event});
 
   @override
-  State<EventDetailPage> createState() => _EventDetailPageState();
+  State<EventDetailScreen> createState() => _EventDetailScreenState();
 }
 
-class _EventDetailPageState extends State<EventDetailPage> {
+class _EventDetailScreenState extends State<EventDetailScreen> {
   String _me = 'guest@local';
   int? _myAge;
 
@@ -174,6 +173,67 @@ class _EventDetailPageState extends State<EventDetailPage> {
     );
   }
 
+  // ---- ADDRESS EDIT (OWNER) ----
+
+  Future<String?> _askAddressDialog(String initial) async {
+    final controller = TextEditingController(text: initial);
+
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Indirizzo completo'),
+          content: TextField(
+            controller: controller,
+            keyboardType: TextInputType.streetAddress,
+            decoration: const InputDecoration(
+              hintText: 'Es. Via Roma 10, 00100 Roma',
+            ),
+            maxLines: 2,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Annulla'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final v = controller.text.trim();
+                if (v.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Inserisci un indirizzo valido.')),
+                  );
+                  return;
+                }
+                Navigator.pop(ctx, v);
+              },
+              child: const Text('Salva'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _saveAddressToEvent() async {
+    final provider = context.read<EventProvider>();
+    final current = _fresh(context);
+
+    if (!_isOwner(current)) {
+      _snack('Solo l’organizzatore può modificare l’indirizzo.');
+      return;
+    }
+
+    final initial = (current.fullAddress ?? '').trim();
+    final newAddress = await _askAddressDialog(initial);
+    if (newAddress == null) return;
+
+    final updated = _copyWith(base: current, fullAddress: newAddress);
+    provider.updateEvent(updated);
+    _snack('Indirizzo aggiornato ✅');
+    setState(() {});
+  }
+
   // ---- ACTIONS ----
 
   Future<void> _joinOrRequest() async {
@@ -254,7 +314,59 @@ class _EventDetailPageState extends State<EventDetailPage> {
     setState(() {});
   }
 
-  // ---- PRIVACY + ADDRESS ----
+  Future<void> _approveRequest(String email) async {
+    final provider = context.read<EventProvider>();
+    final current = _fresh(context);
+
+    if (!_isOwner(current)) {
+      _snack('Solo l’organizzatore può approvare.');
+      return;
+    }
+
+    if (_isFull(current)) {
+      _snack('Evento pieno: non puoi approvare altre richieste.');
+      return;
+    }
+
+    if (!current.pendingRequests.contains(email)) return;
+
+    final newPending = current.pendingRequests.where((x) => x != email).toList();
+    final newParticipants = [...current.participants];
+    if (!newParticipants.contains(email)) newParticipants.add(email);
+
+    final updated = _copyWith(
+      base: current,
+      pendingRequests: newPending,
+      participants: newParticipants,
+    );
+
+    provider.updateEvent(updated);
+    _snack('Richiesta approvata ✅');
+    setState(() {});
+  }
+
+  Future<void> _rejectRequest(String email) async {
+    final provider = context.read<EventProvider>();
+    final current = _fresh(context);
+
+    if (!_isOwner(current)) {
+      _snack('Solo l’organizzatore può rifiutare.');
+      return;
+    }
+
+    if (!current.pendingRequests.contains(email)) return;
+
+    final updated = _copyWith(
+      base: current,
+      pendingRequests: current.pendingRequests.where((x) => x != email).toList(),
+    );
+
+    provider.updateEvent(updated);
+    _snack('Richiesta rifiutata ❌');
+    setState(() {});
+  }
+
+  // ---- PRIVACY + ADDRESS ACTIONS ----
 
   bool _canSeeFullAddress(Event e) {
     final hasAddress = (e.fullAddress ?? '').trim().isNotEmpty;
@@ -278,36 +390,6 @@ class _EventDetailPageState extends State<EventDetailPage> {
     }
   }
 
-  // ---- SHARE EVENT ----
-
-  String _buildShareText(Event e) {
-    final dateStr =
-        '${e.date.day.toString().padLeft(2, "0")}/${e.date.month.toString().padLeft(2, "0")}/${e.date.year}';
-    final zone = (e.zone == null || e.zone!.trim().isEmpty) ? 'Zona non indicata' : e.zone!.trim();
-    final listStr = e.listType == ListType.open ? 'Lista aperta' : 'Lista privata';
-    final ageStr = e.ageRestrictionType == AgeRestrictionType.none || e.ageRestrictionValue == null
-        ? ''
-        : (e.ageRestrictionType == AgeRestrictionType.over
-            ? '\nEtà minima: ${e.ageRestrictionValue}+'
-            : '\nEtà massima: ${e.ageRestrictionValue}');
-
-    // indirizzo SOLO se visibile (privacy)
-    final address = (e.fullAddress ?? '').trim();
-    final addressStr = (_canSeeFullAddress(e) && address.isNotEmpty)
-        ? '\nIndirizzo: $address'
-        : '';
-
-    final desc = (e.description ?? '').trim();
-    final descStr = desc.isEmpty ? '' : '\n\n$desc';
-
-    return '🎉 ${e.name}\n📅 $dateStr\n📍 $zone\n👥 ${e.participants.length}/${e.maxParticipants}\n🔒 $listStr$ageStr$addressStr$descStr';
-  }
-
-  Future<void> _shareEvent(Event e) async {
-    final text = _buildShareText(e);
-    await Share.share(text, subject: e.name);
-  }
-
   @override
   Widget build(BuildContext context) {
     final current = context.watch<EventProvider>().events.firstWhere(
@@ -318,16 +400,17 @@ class _EventDetailPageState extends State<EventDetailPage> {
     final dateStr =
         '${current.date.day.toString().padLeft(2, "0")}/${current.date.month.toString().padLeft(2, "0")}/${current.date.year}';
 
+    final listTypeStr =
+        current.listType == ListType.open ? 'Lista aperta' : 'Lista privata';
+
     final zoneStr = (current.zone == null || current.zone!.trim().isEmpty)
         ? 'Zona non indicata'
         : current.zone!.trim();
 
-    final listTypeStr =
-        current.listType == ListType.open ? 'Lista aperta' : 'Lista privata';
-
     final isFull = _isFull(current);
     final alreadyIn = _isIn(current);
     final alreadyRequested = _hasRequested(current);
+    final isOwner = _isOwner(current);
 
     String primaryLabel;
     VoidCallback? primaryAction;
@@ -348,21 +431,12 @@ class _EventDetailPageState extends State<EventDetailPage> {
       }
     }
 
-    final canSeeAddress = _canSeeFullAddress(current);
     final address = (current.fullAddress ?? '').trim();
+    final canSeeAddress = _canSeeFullAddress(current);
     final ageRule = _ageRuleLabel(current);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(current.name),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share),
-            tooltip: 'Condividi',
-            onPressed: () => _shareEvent(current),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: Text(current.name)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -459,7 +533,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
 
           const SizedBox(height: 16),
 
-          // Indirizzo + copy + maps
+          // Indirizzo + copia + maps + (owner edit)
           Row(
             children: [
               const Expanded(
@@ -468,6 +542,11 @@ class _EventDetailPageState extends State<EventDetailPage> {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
+              if (isOwner)
+                TextButton(
+                  onPressed: _saveAddressToEvent,
+                  child: Text(address.isEmpty ? 'Aggiungi' : 'Modifica'),
+                ),
               if (canSeeAddress && address.isNotEmpty) ...[
                 IconButton(
                   onPressed: () => _copyAddress(address),
@@ -484,17 +563,65 @@ class _EventDetailPageState extends State<EventDetailPage> {
           ),
           const SizedBox(height: 6),
           if (canSeeAddress)
-            Text(address.isEmpty ? 'Non disponibile' : address,
-                style: const TextStyle(fontSize: 14))
+            Text(
+              address.isEmpty ? 'Non disponibile' : address,
+              style: const TextStyle(fontSize: 14),
+            )
           else
             Text(
               address.isEmpty
-                  ? 'Indirizzo non disponibile.'
+                  ? (isOwner
+                      ? 'Non hai ancora inserito l’indirizzo.'
+                      : 'Indirizzo non disponibile.')
                   : 'Visibile solo dopo approvazione / partecipazione.',
               style: const TextStyle(fontSize: 14, color: Colors.white70),
             ),
 
           const SizedBox(height: 16),
+
+          // Richieste per evento privato
+          if (current.listType == ListType.closed) ...[
+            const Text(
+              'Richieste in attesa',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 6),
+            if (current.pendingRequests.isEmpty)
+              const Text('Nessuna richiesta al momento.',
+                  style: TextStyle(fontSize: 14))
+            else if (!isOwner)
+              Text('Totale richieste: ${current.pendingRequests.length}',
+                  style: const TextStyle(fontSize: 14))
+            else
+              Column(
+                children: current.pendingRequests.map((email) {
+                  return Card(
+                    child: ListTile(
+                      title: Text(email),
+                      subtitle: const Text('Vuole partecipare'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            onPressed: isFull ? null : () => _approveRequest(email),
+                            icon: const Icon(Icons.check_circle_outline),
+                            tooltip: 'Approva',
+                          ),
+                          IconButton(
+                            onPressed: () => _rejectRequest(email),
+                            icon: const Icon(Icons.cancel_outlined),
+                            tooltip: 'Rifiuta',
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            const SizedBox(height: 16),
+          ],
+
+          const SizedBox(height: 10),
 
           Row(
             children: [

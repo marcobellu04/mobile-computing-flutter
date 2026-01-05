@@ -7,6 +7,8 @@ import 'screens/home.dart';
 import 'providers/event_provider.dart';
 import 'providers/venue_provider.dart';
 import 'providers/message_provider.dart';
+import 'screens/map_screen.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,7 +19,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => EventProvider()),
+        ChangeNotifierProvider(create: (_) => EventProvider()..loadEvents()),
         ChangeNotifierProvider(create: (_) => VenueProvider()),
         ChangeNotifierProvider<MessageProvider>.value(value: messageProvider),
       ],
@@ -54,6 +56,8 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
         '/home': (context) => const HomeScreen(),
+        '/map': (context) => const MapScreen(),
+
         // aggiungi altre rotte se serve
       },
     );
