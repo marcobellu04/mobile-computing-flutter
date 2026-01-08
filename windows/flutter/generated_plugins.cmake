@@ -3,7 +3,12 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+<<<<<<< HEAD
   file_selector_windows
+=======
+  share_plus
+  url_launcher_windows
+>>>>>>> origin/esamelalla
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST

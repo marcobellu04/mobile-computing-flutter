@@ -13,8 +13,9 @@ import '../models/event.dart';
 import '../models/venue.dart';
 import '../providers/event_provider.dart';
 import '../providers/venue_provider.dart';
-import 'event_detail_page.dart';
 import '../providers/likes_provider.dart';
+// se vuoi usare in futuro la mappa “vera”, lasci l’import pronto:
+// import 'map_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String currentUserEmail;
@@ -40,10 +41,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
     _pages = [
       const EventsPage(),          // 0 - Home
-      const _LikesPage(),          // 1 - Likes
-      const _AddEventTab(),        // 2 - Add (centrale, ma il + vero è il FAB)
-      const _MapPlaceholderPage(), // 3 - Map
-      ProfilePage(                 // 4 - Profile
+      const _LikesPage(),         // 1 - Likes
+      const _AddEventTab(),       // 2 - Add (centrale, ma il + vero è il FAB)
+      const _MapPlaceholderPage(),// 3 - Map (placeholder, poi potrai usare MapScreen)
+      ProfilePage(                // 4 - Profile
         currentUserEmail: widget.currentUserEmail,
         profileUserEmail: widget.currentUserEmail,
         profileUserName: '',
@@ -67,69 +68,68 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openAddEventFromFab(BuildContext context) async {
-  final choice = await showDialog<String>(
-    context: context,
-    builder: (context) {
-      return SimpleDialog(
-        title: const Text('Cosa vuoi aggiungere?'),
-        children: [
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(context, 'event'),
-            child: const Text('Aggiungi evento'),
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return SimpleDialog(
+          title: const Text('Cosa vuoi aggiungere?'),
+          children: [
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, 'event'),
+              child: const Text('Aggiungi evento'),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, 'venue'),
+              child: const Text('Aggiungi struttura'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (choice == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final email = prefs.getString('user_email') ?? '';
+
+    String ownerName = '';
+    String ownerSurname = '';
+
+    if (email.isNotEmpty) {
+      final jsonString = prefs.getString('user_data_$email');
+      if (jsonString != null) {
+        final map = jsonDecode(jsonString) as Map<String, dynamic>;
+        ownerName = (map['name'] ?? '') as String;
+        ownerSurname = (map['surname'] ?? '') as String;
+      }
+    }
+
+    if (email.isEmpty) return;
+
+    if (choice == 'event') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AddEventScreen(
+            ownerEmail: email,
+            ownerName: ownerName,
+            ownerSurname: ownerSurname,
           ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(context, 'venue'),
-            child: const Text('Aggiungi struttura'),
-          ),
-        ],
+        ),
       );
-    },
-  );
-
-  if (choice == null) return;
-
-  final prefs = await SharedPreferences.getInstance();
-  final email = prefs.getString('user_email') ?? '';
-
-  String ownerName = '';
-  String ownerSurname = '';
-
-  if (email.isNotEmpty) {
-    final jsonString = prefs.getString('user_data_$email');
-    if (jsonString != null) {
-      final map = jsonDecode(jsonString) as Map<String, dynamic>;
-      ownerName = (map['name'] ?? '') as String;
-      ownerSurname = (map['surname'] ?? '') as String;
+    } else if (choice == 'venue') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AddVenueScreen(
+            ownerEmail: email,
+            ownerName: ownerName,
+            ownerSurname: ownerSurname,
+          ),
+        ),
+      );
     }
   }
-
-  if (email.isEmpty) return;
-
-  if (choice == 'event') {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AddEventScreen(
-          ownerEmail: email,
-          ownerName: ownerName,
-          ownerSurname: ownerSurname,
-        ),
-      ),
-    );
-  } else if (choice == 'venue') {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AddVenueScreen(       // tua nuova pagina
-          ownerEmail: email,
-          ownerName: ownerName,
-          ownerSurname: ownerSurname,
-        ),
-      ),
-    );
-  }
-}
-
 
   @override
   Widget build(BuildContext context) {
@@ -236,7 +236,9 @@ class _AddEventTab extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => EventDetailPage(event: e),
+                // se usi EventDetailScreen, importa e mettilo qui:
+                // builder: (_) => EventDetailScreen(event: e),
+                builder: (_) => EventDetailScreen(event: e),
               ),
             );
           },
@@ -298,7 +300,8 @@ class _LikesPage extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => EventDetailPage(event: e),
+                    // idem qui, usa EventDetailScreen
+                    builder: (_) => EventDetailScreen(event: e),
                   ),
                 );
               },

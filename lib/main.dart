@@ -5,13 +5,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'auth/login.dart';
 import 'auth/register.dart';
 import 'providers/likes_provider.dart';
-import 'screens/home.dart';
-import 'screens/user_profile_page.dart';
+import 'providers/filter_provider.dart';
+import 'providers/theme_provider.dart';
 import 'providers/event_provider.dart';
 import 'providers/venue_provider.dart';
 import 'providers/message_provider.dart';
-import 'providers/filter_provider.dart';
-import 'providers/theme_provider.dart';
+import 'screens/home.dart';
+import 'screens/user_profile_page.dart';
+import 'screens/map_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -90,6 +91,7 @@ class MyApp extends StatelessWidget {
         '/register': (context) => const RegisterScreen(),
         '/home': (context) => HomeScreen(currentUserEmail: currentUserEmail),
         '/profile_edit': (context) => const UserProfilePage(),
+        '/map': (context) => const MapScreen(),  // aggiunta rotta MapScreen
       },
     );
   }
