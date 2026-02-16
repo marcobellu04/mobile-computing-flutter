@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -103,7 +102,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
 
     if (!mounted) return;
-    Navigator.pushReplacementNamed(context, '/login');
+    // Dopo la registrazione, torna al Login
+    Navigator.pop(context); 
   }
 
   void _showError(String message) {
@@ -113,7 +113,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5EFE8),
+      backgroundColor: const Color.fromARGB(255, 255, 255, 255), // Colore beige originale
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -125,7 +125,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   alignment: Alignment.topRight,
                   child: TextButton(
                     onPressed: () {
-                      Navigator.pushReplacementNamed(context, '/login');
+                      Navigator.pop(context); // Torna al Login
                     },
                     child: const Text(
                       'Log in',
@@ -143,7 +143,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 32),
-
                 const Text('Name',
                     style: TextStyle(fontSize: 14, color: Colors.black87)),
                 const SizedBox(height: 8),
@@ -157,7 +156,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-
                 const Text('Surname',
                     style: TextStyle(fontSize: 14, color: Colors.black87)),
                 const SizedBox(height: 8),
@@ -171,7 +169,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-
                 const Text('Date of birth',
                     style: TextStyle(fontSize: 14, color: Colors.black87)),
                 const SizedBox(height: 8),
@@ -188,7 +185,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   onTap: _pickBirthDate,
                 ),
                 const SizedBox(height: 24),
-
                 const Text('Gender',
                     style: TextStyle(fontSize: 14, color: Colors.black87)),
                 const SizedBox(height: 8),
@@ -205,7 +201,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   onChanged: (val) => setState(() => _gender = val),
                 ),
                 const SizedBox(height: 24),
-
                 const Text('Your Email',
                     style: TextStyle(fontSize: 14, color: Colors.black87)),
                 const SizedBox(height: 8),
@@ -220,7 +215,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-
                 const Text('Password',
                     style: TextStyle(fontSize: 14, color: Colors.black87)),
                 const SizedBox(height: 8),
@@ -235,14 +229,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 32),
-
                 SizedBox(
                   width: double.infinity,
                   height: 52,
                   child: ElevatedButton(
                     onPressed: _register,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black87,
+                      backgroundColor: Colors.amber, 
+                      foregroundColor: Colors.black87,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(26),
                       ),
@@ -250,16 +244,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     child: const Text(
                       'Sign up',
-                      style: TextStyle(fontSize: 16),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 24),
                 Center(
                   child: TextButton(
                     onPressed: () {
-                      Navigator.pushReplacementNamed(context, '/login');
+                      Navigator.pop(context); // Torna al Login
                     },
                     child: const Text(
                       'Hai già un account? Accedi',

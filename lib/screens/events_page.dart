@@ -1,6 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
-
+import 'dart:io'; // NECESSARIO PER USARE File()
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,12 +12,13 @@ import '../providers/venue_provider.dart';
 import '../providers/filter_provider.dart';
 import '../providers/likes_provider.dart';
 import '../utils/filter_preferences.dart';
-import 'event_detail_page.dart';
+import 'event_detail_screen.dart';
+import 'venue_detail_screen.dart'; // ✅ AGGIUNTO IMPORT DETTAGLIO STRUTTURA
 import '../widgets/filter_zone.dart';
-import '../widgets/filter_age.dart';
 
 class EventsPage extends StatefulWidget {
-  const EventsPage({super.key});
+  final bool onlyFavorites;
+  const EventsPage({super.key, this.onlyFavorites = false});
 
   @override
   State<EventsPage> createState() => _EventsPageState();
@@ -26,6 +26,7 @@ class EventsPage extends StatefulWidget {
 
 class _EventsPageState extends State<EventsPage> {
   User? currentUser;
+  String _currentEmail = ''; 
   String searchQuery = '';
   final FilterPreferences _filterPreferences = FilterPreferences();
   bool _showFilterMenu = false;
@@ -39,102 +40,32 @@ class _EventsPageState extends State<EventsPage> {
 
   Future<void> _loadUser() async {
     final prefs = await SharedPreferences.getInstance();
+    String? email = prefs.getString('user_email');
     final userDataString = prefs.getString('user_data');
+    
     if (userDataString != null) {
       final Map<String, dynamic> userMap = jsonDecode(userDataString);
+      email ??= userMap['email'];
       setState(() {
         currentUser = User.fromMap(userMap);
       });
+    }
+
+    if (email != null && email.isNotEmpty) {
+      setState(() {
+        _currentEmail = email!;
+      });
+      Provider.of<LikesProvider>(context, listen: false).loadForUser(email);
     }
   }
 
   Future<void> _loadFilters() async {
     final filters = await _filterPreferences.loadFilters();
-    final filterProvider = Provider.of<FilterProvider>(context, listen: false);
-    filterProvider.loadFromMap(filters);
-  }
-
-  Future<void> _saveFilters(FilterProvider filters) async {
-    await _filterPreferences.saveFilters(
-      filters.selectedZone,
-      filters.ageFilterType?.index ?? 0,
-      filters.ageFilterValue,
-      filters.dateFilter,
-    );
+    Provider.of<FilterProvider>(context, listen: false).loadFromMap(filters);
   }
 
   List<String> getAllZones(List<Event> events) {
-    final zones = <String>{};
-    for (final e in events) {
-      final zone = e.zone;
-      if (zone != null && zone.isNotEmpty) {
-        zones.add(zone);
-      }
-    }
-    return zones.toList();
-  }
-
-  List<Event> applyFilters(List<Event> events, FilterProvider filters) {
-    final selectedAgeType = filters.ageFilterType ?? AgeRestrictionType.none;
-    final selectedAgeValue = filters.ageFilterValue;
-    final selectedDate = filters.dateFilter;
-
-    return events.where((event) {
-      if (selectedAgeType != AgeRestrictionType.none &&
-          selectedAgeValue != null) {
-        if (selectedAgeType == AgeRestrictionType.under) {
-          if (event.ageRestrictionType == AgeRestrictionType.under) {
-            if (event.ageRestrictionValue != null &&
-                event.ageRestrictionValue! > selectedAgeValue) {
-              return false;
-            }
-          } else if (event.ageRestrictionType == AgeRestrictionType.over) {
-            return false;
-          }
-        } else if (selectedAgeType == AgeRestrictionType.over) {
-          if (event.ageRestrictionType == AgeRestrictionType.over) {
-            if (event.ageRestrictionValue != null &&
-                event.ageRestrictionValue! < selectedAgeValue) {
-              return false;
-            }
-          } else if (event.ageRestrictionType == AgeRestrictionType.under) {
-            return false;
-          }
-        }
-      }
-
-      if (filters.selectedZone != null &&
-          filters.selectedZone!.isNotEmpty &&
-          event.zone != filters.selectedZone) {
-        return false;
-      }
-
-      if (selectedDate != null) {
-        final eventDate = event.date;
-        if (!(eventDate.year == selectedDate.year &&
-            eventDate.month == selectedDate.month &&
-            eventDate.day == selectedDate.day)) {
-          return false;
-        }
-      }
-
-      final name = event.name.toLowerCase();
-      final desc = (event.description ?? '').toLowerCase();
-      final query = searchQuery.toLowerCase();
-      if (searchQuery.isNotEmpty &&
-          !name.contains(query) &&
-          !desc.contains(query)) {
-        return false;
-      }
-
-      return true;
-    }).toList();
-  }
-
-  void _toggleFilterMenu() {
-    setState(() {
-      _showFilterMenu = !_showFilterMenu;
-    });
+    return events.map((e) => e.zone).where((z) => z != null && z!.isNotEmpty).cast<String>().toSet().toList();
   }
 
   @override
@@ -142,193 +73,96 @@ class _EventsPageState extends State<EventsPage> {
     final events = Provider.of<EventProvider>(context).events;
     final venues = Provider.of<VenueProvider>(context).venues;
     final filters = Provider.of<FilterProvider>(context);
-    final Map<String, Venue> venuesById = {for (var v in venues) v.id: v};
-    final filteredEvents = applyFilters(events, filters);
+    final likes = Provider.of<LikesProvider>(context);
+    
+    final filteredEvents = events.where((event) {
+      if (widget.onlyFavorites && !likes.isLiked(event.id)) return false;
+      if (searchQuery.isNotEmpty && !event.name.toLowerCase().contains(searchQuery.toLowerCase())) return false;
+      if (filters.selectedZone != null && filters.selectedZone!.isNotEmpty && event.zone != filters.selectedZone) return false;
+      return true;
+    }).toList();
 
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Search + filtro
+            // BARRA RICERCA
             Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      decoration: const InputDecoration(
-                        hintText: "Cerca evento...",
-                        prefixIcon: Icon(Icons.search),
+              padding: const EdgeInsets.all(16.0),
+              child: Container(
+                decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(15)),
+                child: Row(
+                  children: [
+                    const Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Icon(Icons.search, color: Colors.amber)),
+                    Expanded(
+                      child: TextField(
+                        decoration: const InputDecoration(hintText: "Cerca...", border: InputBorder.none),
+                        onChanged: (val) => setState(() => searchQuery = val),
                       ),
-                      onChanged: (val) {
-                        setState(() {
-                          searchQuery = val;
-                        });
-                      },
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.filter_list),
-                    onPressed: _toggleFilterMenu,
-                  )
-                ],
+                    IconButton(
+                      icon: const Icon(Icons.filter_list_rounded), 
+                      onPressed: () => setState(() => _showFilterMenu = !_showFilterMenu)
+                    )
+                  ],
+                ),
               ),
             ),
 
             if (_showFilterMenu)
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: Column(
-                  children: [
-                    FilterZone(
-                      selectedZone: filters.selectedZone,
-                      zones: getAllZones(events),
-                      onZoneChanged: (zone) =>
-                          filters.setSelectedZone(zone),
-                    ),
-                    const SizedBox(height: 10),
-                    FilterAge(
-                      selectedAgeType:
-                          filters.ageFilterType ?? AgeRestrictionType.none,
-                      ageValue: filters.ageFilterValue,
-                      onAgeTypeChanged: (type) {
-                        if (type != null) filters.setAgeFilterType(type);
-                      },
-                      onAgeValueChanged: (val) =>
-                          filters.setAgeFilterValue(val),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            filters.dateFilter != null
-                                ? 'Data selezionata: ${filters.dateFilter!.toLocal().toString().split(' ')[0]}'
-                                : 'Seleziona data',
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.date_range),
-                          onPressed: () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate:
-                                  filters.dateFilter ?? DateTime.now(),
-                              firstDate: DateTime(2020),
-                              lastDate: DateTime(2100),
-                            );
-                            if (picked != null) {
-                              filters.setDateFilter(picked);
-                            }
-                          },
-                        )
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        ElevatedButton(
-                          onPressed: () {
-                            _saveFilters(filters);
-                            _toggleFilterMenu();
-                          },
-                          child: const Text("Applica filtro"),
-                        ),
-                        const SizedBox(width: 12),
-                        ElevatedButton(
-                          onPressed: () {
-                            filters.clearAll();
-                            _saveFilters(filters);
-                            setState(() {
-                              searchQuery = '';
-                            });
-                          },
-                          style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.grey[700]),
-                          child: const Text("Azzera tutto"),
-                        ),
-                      ],
-                    ),
-                  ],
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: FilterZone(
+                  selectedZone: filters.selectedZone,
+                  zones: getAllZones(events),
+                  onZoneChanged: (z) => filters.setSelectedZone(z),
                 ),
               ),
 
-            const SizedBox(height: 8),
-
-            // Sezione Eventi
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
-                'Eventi',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+                widget.onlyFavorites ? 'I tuoi Preferiti' : 'Eventi', 
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)
               ),
             ),
-            const SizedBox(height: 8),
+
+            // LISTA ORIZZONTALE EVENTI
             SizedBox(
-              height: 230,
+              height: 250,
               child: filteredEvents.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'Nessun evento trovato.',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    )
-                  : ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: filteredEvents.length,
-                      itemBuilder: (context, index) {
-                        final e = filteredEvents[index];
-                        final venue =
-                            e.venueId != null ? venuesById[e.venueId!] : null;
-                        return _EventCardHorizontal(
-                          event: e,
-                          venue: venue,
-                        );
-                      },
-                    ),
+                ? Center(child: Text(widget.onlyFavorites ? 'Nessun preferito salvato' : 'Nessun evento trovato'))
+                : ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.only(left: 16),
+                    itemCount: filteredEvents.length,
+                    itemBuilder: (context, index) {
+                      return _EventCardHorizontal(
+                        event: filteredEvents[index],
+                        userEmail: _currentEmail,
+                      );
+                    },
+                  ),
             ),
 
-            const SizedBox(height: 16),
-
-            // Sezione Strutture
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                'Strutture',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+            if (!widget.onlyFavorites) ...[
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                child: Text('Strutture', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              ),
+              SizedBox(
+                height: 180,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.only(left: 16),
+                  itemCount: venues.length,
+                  itemBuilder: (context, index) => _VenueCardHorizontal(venue: venues[index]),
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 230,
-              child: venues.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'Nessuna struttura aggiunta.',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    )
-                  : ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: venues.length,
-                      itemBuilder: (context, index) {
-                        final v = venues[index];
-                        return _VenueCardHorizontal(venue: v);
-                      },
-                    ),
-            ),
-
-            const SizedBox(height: 24),
+            ],
+            const SizedBox(height: 100),
           ],
         ),
       ),
@@ -336,102 +170,93 @@ class _EventsPageState extends State<EventsPage> {
   }
 }
 
-// CARD ORIZZONTALE EVENTO
 class _EventCardHorizontal extends StatelessWidget {
   final Event event;
-  final Venue? venue;
-
-  const _EventCardHorizontal({
-    super.key,
-    required this.event,
-    this.venue,
-  });
+  final String userEmail;
+  const _EventCardHorizontal({required this.event, required this.userEmail});
 
   @override
   Widget build(BuildContext context) {
+    final likesProvider = Provider.of<LikesProvider>(context);
+    final bool isLiked = likesProvider.isLiked(event.id);
+
     return Container(
-      width: 260,
-      margin: const EdgeInsets.only(left: 16, right: 8, bottom: 8),
+      width: 240,
+      margin: const EdgeInsets.only(right: 16, bottom: 10),
       child: GestureDetector(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => EventDetailPage(event: event),
-            ),
-          );
-        },
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailScreen(event: event))),
         child: Card(
-          color: const Color(0xFF1F1F2F),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          elevation: 3,
           clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Stack(
             children: [
-              // Immagine in alto (usa imagePath se la aggiungi al modello)
-              SizedBox(
-                height: 120,
-                width: double.infinity,
-                child: Image.asset(
-                  'assets/images/event_placeholder.jpg',
-                  fit: BoxFit.cover,
+              // ✅ FIX: Caricamento immagine evento
+              Positioned.fill(
+                child: Hero(
+                  tag: 'event-${event.id}',
+                  child: (event.imagePath != null && File(event.imagePath!).existsSync())
+                      ? Image.file(
+                          File(event.imagePath!), 
+                          fit: BoxFit.cover,
+                          errorBuilder: (ctx, err, stack) => Container(color: Colors.amber[50], child: const Icon(Icons.broken_image, color: Colors.amber)),
+                        )
+                      : Container(
+                          color: Colors.amber.withOpacity(0.1),
+                          child: const Icon(Icons.image, color: Colors.amber, size: 50),
+                        ),
+                ),
+              ),
+              // Gradiente per leggere il testo
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
+                    ),
+                  ),
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(10),
-                child: Row(
+                padding: const EdgeInsets.all(16),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            event.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            "${event.date.day}/${event.date.month}/${event.date.year}",
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.white70,
-                            ),
-                          ),
-                          if (venue != null) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              venue!.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.white70,
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 4),
-                          Text(
-                            "${event.participants.length} / ${event.maxParticipants} persone",
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.white70,
-                            ),
-                          ),
-                        ],
-                      ),
+                    Text(
+                      event.name, 
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white), 
+                      maxLines: 1, 
+                      overflow: TextOverflow.ellipsis
                     ),
-                    const SizedBox(width: 4),
-                    _LikeIconSmall(eventId: event.id),
+                    Text(
+                      event.zone ?? '', 
+                      style: const TextStyle(color: Colors.white70, fontSize: 12)
+                    ),
                   ],
+                ),
+              ),
+              // Tasto Like
+              Positioned(
+                top: 8,
+                left: 8,
+                child: IconButton(
+                  icon: Icon(
+                    isLiked ? Icons.favorite : Icons.favorite_border,
+                    color: isLiked ? Colors.red : Colors.white,
+                    size: 28,
+                  ),
+                  onPressed: () {
+                    if (userEmail.isNotEmpty) {
+                      likesProvider.toggleLike(userEmail, event.id);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Effettua il login per salvare i preferiti"))
+                      );
+                    }
+                  },
                 ),
               ),
             ],
@@ -442,109 +267,58 @@ class _EventCardHorizontal extends StatelessWidget {
   }
 }
 
-// CUORE PICCOLO NELLA CARD
-class _LikeIconSmall extends StatelessWidget {
-  final String eventId;
-
-  const _LikeIconSmall({super.key, required this.eventId});
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<SharedPreferences>(
-      future: SharedPreferences.getInstance(),
-      builder: (context, snap) {
-        if (!snap.hasData) return const SizedBox.shrink();
-        final prefs = snap.data!;
-        final email = prefs.getString('user_email') ?? '';
-        if (email.isEmpty) return const SizedBox.shrink();
-
-        final likesProvider = Provider.of<LikesProvider>(context);
-        final isLiked = likesProvider.isLiked(email, eventId);
-
-        return IconButton(
-          icon: Icon(
-            isLiked
-                ? Icons.favorite_rounded
-                : Icons.favorite_outline_rounded,
-            color: isLiked ? Colors.redAccent : Colors.white70,
-            size: 22,
-          ),
-          onPressed: () {
-            Provider.of<LikesProvider>(context, listen: false)
-                .toggleLike(email, eventId);
-          },
-        );
-      },
-    );
-  }
-}
-
-// CARD ORIZZONTALE STRUTTURA
 class _VenueCardHorizontal extends StatelessWidget {
   final Venue venue;
-
-  const _VenueCardHorizontal({super.key, required this.venue});
+  const _VenueCardHorizontal({required this.venue});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 260,
-      margin: const EdgeInsets.only(left: 16, right: 8, bottom: 8),
-      child: Card(
-        color: const Color(0xFF1F1F2F),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              height: 120,
-              width: double.infinity,
-              child: Image.asset(
-                'assets/images/venue_placeholder.jpg',
-                fit: BoxFit.cover,
-              ),
+      width: 160,
+      margin: const EdgeInsets.only(right: 16),
+      child: GestureDetector(
+        // ✅ AGGIUNTO GESTURE DETECTOR PER RENDERE CLICCABILE
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => VenueDetailScreen(venue: venue),
             ),
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    venue.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    venue.address ?? '',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.white70,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  if (venue.capacity != null)
-                    Text(
-                      "Capienza: ${venue.capacity}",
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.white70,
-                      ),
-                    ),
-                ],
+          );
+        },
+        child: Card(
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          child: Column(
+            children: [
+              Expanded(
+                child: Hero(
+                  tag: 'venue-${venue.id}', // ✅ AGGIUNTO HERO PER STRUTTURA
+                  child: (venue.imagePath != null && File(venue.imagePath!).existsSync())
+                      ? Image.file(
+                          File(venue.imagePath!), 
+                          width: double.infinity, 
+                          fit: BoxFit.cover
+                        )
+                      : Container(
+                          width: double.infinity,
+                          color: Colors.grey[200],
+                          child: const Icon(Icons.storefront, size: 40, color: Colors.amber),
+                        ),
+                ),
               ),
-            ),
-          ],
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  venue.name, 
+                  style: const TextStyle(fontWeight: FontWeight.bold), 
+                  textAlign: TextAlign.center, 
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

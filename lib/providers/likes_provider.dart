@@ -3,14 +3,20 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LikesProvider extends ChangeNotifier {
+  // Mappa che associa l'email dell'utente al set dei suoi ID evento preferiti
   final Map<String, Set<String>> _likesByUser = {};
+  
+  // Teniamo traccia dell'utente corrente per semplificare le chiamate dalla UI
+  String? _currentUserEmail;
 
   Set<String> likesFor(String userEmail) {
     return _likesByUser[userEmail] ?? <String>{};
   }
 
-  bool isLiked(String userEmail, String eventId) {
-    return likesFor(userEmail).contains(eventId);
+  // MODIFICATO: Accetta l'ID evento e usa l'utente corrente internamente
+  bool isLiked(String eventId) {
+    if (_currentUserEmail == null) return false;
+    return likesFor(_currentUserEmail!).contains(eventId);
   }
 
   Future<void> toggleLike(String userEmail, String eventId) async {
@@ -25,12 +31,17 @@ class LikesProvider extends ChangeNotifier {
   }
 
   Future<void> loadForUser(String userEmail) async {
+    _currentUserEmail = userEmail; // Memorizziamo l'utente attivo
     final prefs = await SharedPreferences.getInstance();
     final key = 'likes_$userEmail';
     final data = prefs.getString(key);
     if (data != null) {
-      final List list = jsonDecode(data) as List;
-      _likesByUser[userEmail] = list.map((e) => e as String).toSet();
+      try {
+        final List list = jsonDecode(data) as List;
+        _likesByUser[userEmail] = list.map((e) => e as String).toSet();
+      } catch (e) {
+        _likesByUser[userEmail] = <String>{};
+      }
     }
     notifyListeners();
   }

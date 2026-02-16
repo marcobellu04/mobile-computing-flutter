@@ -1,9 +1,8 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import '../screens/home.dart'; // <-- aggiungi questo import (percorso in base al tuo progetto)
+import '../screens/home.dart'; 
+import 'register.dart'; // Assicurati che il percorso sia corretto
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -60,14 +59,21 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  // Funzione per navigare alla registrazione
+  void _goToRegister() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const RegisterScreen()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5EFE8),
+      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -78,9 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Align(
                   alignment: Alignment.topRight,
                   child: TextButton(
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/register');
-                    },
+                    onPressed: _goToRegister,
                     child: const Text(
                       'Sign up',
                       style: TextStyle(color: Colors.black87),
@@ -90,17 +94,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 32),
                 const Text(
                   'Log in',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black87),
                 ),
                 const SizedBox(height: 32),
-                const Text(
-                  'Your Email',
-                  style: TextStyle(fontSize: 14, color: Colors.black87),
-                ),
+                const Text('Your Email', style: TextStyle(fontSize: 14, color: Colors.black87)),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _emailController,
@@ -113,10 +110,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text(
-                  'Password',
-                  style: TextStyle(fontSize: 14, color: Colors.black87),
-                ),
+                const Text('Password', style: TextStyle(fontSize: 14, color: Colors.black87)),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _passwordController,
@@ -135,55 +129,33 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: ElevatedButton(
                     onPressed: _login,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black87,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(26),
-                      ),
+                      backgroundColor: Colors.amber, 
+                      foregroundColor: Colors.black87,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
                       elevation: 4,
                     ),
-                    child: const Text(
-                      'Log in',
-                      style: TextStyle(fontSize: 16),
-                    ),
+                    child: const Text('Log in', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Center(
-                  child: Text(
-                    'Or sign in with',
-                    style: TextStyle(color: Colors.black54),
-                  ),
-                ),
+                const Center(child: Text('Or sign in with', style: TextStyle(color: Colors.black54))),
                 const SizedBox(height: 16),
                 Center(
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                     ),
-                    onPressed: () {
-                      // TODO: integrazione accesso con Google
-                    },
+                    onPressed: () {},
                     icon: const Icon(Icons.g_mobiledata, size: 28),
-                    label: const Text(
-                      'Continue with Google',
-                      style: TextStyle(color: Colors.black87),
-                    ),
+                    label: const Text('Continue with Google', style: TextStyle(color: Colors.black87)),
                   ),
                 ),
                 const SizedBox(height: 24),
                 Center(
                   child: TextButton(
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/register');
-                    },
-                    child: const Text(
-                      'Non hai un account? Registrati',
-                      style: TextStyle(color: Colors.black87),
-                    ),
+                    onPressed: _goToRegister,
+                    child: const Text('Non hai un account? Registrati', style: TextStyle(color: Colors.black87)),
                   ),
                 ),
               ],

@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,13 +8,13 @@ import 'profile_page.dart';
 import 'chat_list_page.dart';
 import 'add_event.dart';
 import 'add_venue.dart';
+import 'event_detail_screen.dart';
 import '../models/event.dart';
 import '../models/venue.dart';
 import '../providers/event_provider.dart';
 import '../providers/venue_provider.dart';
 import '../providers/likes_provider.dart';
-// se vuoi usare in futuro la mappa “vera”, lasci l’import pronto:
-// import 'map_screen.dart';
+import 'map_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String currentUserEmail;
@@ -29,22 +28,23 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
+  // Questa è la lista che gestisce la navigazione tra le tue pagine
   late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
 
-    // carica i like dell'utente corrente
+    // Carica i like dell'utente corrente all'avvio
     Provider.of<LikesProvider>(context, listen: false)
         .loadForUser(widget.currentUserEmail);
 
     _pages = [
-      const EventsPage(),          // 0 - Home
-      const _LikesPage(),         // 1 - Likes
-      const _AddEventTab(),       // 2 - Add (centrale, ma il + vero è il FAB)
-      const _MapPlaceholderPage(),// 3 - Map (placeholder, poi potrai usare MapScreen)
-      ProfilePage(                // 4 - Profile
+      const EventsPage(),           // 0 - Home
+      const EventsPage(onlyFavorites: true), // 1 - MODIFICATO: Ora carica i Preferiti veri
+      const SizedBox.shrink(),      // 2 - Spazio per il tasto centrale
+      const MapScreen(),            // 3 - Map
+      ProfilePage(                 // 4 - Profile
         currentUserEmail: widget.currentUserEmail,
         profileUserEmail: widget.currentUserEmail,
         profileUserName: '',
@@ -53,6 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onItemTapped(int index) {
+    if (index == 2) return; // Evitiamo che clicchi sul "buco" del tasto +
     setState(() {
       _selectedIndex = index;
     });
@@ -61,12 +62,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void _navigateToChat() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) =>
-            ChatListPage(currentUserEmail: widget.currentUserEmail),
+        builder: (_) => ChatListPage(currentUserEmail: widget.currentUserEmail),
       ),
     );
   }
 
+  // --- TUA LOGICA ORIGINALE INTEGRALE ---
   Future<void> _openAddEventFromFab(BuildContext context) async {
     final choice = await showDialog<String>(
       context: context,
@@ -134,193 +135,70 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBody: true, // Fondamentale per far vedere il contenuto dietro la barra curva
       appBar: AppBar(
-        title: const Text('GeoEvent'),
+        title: const Text('GeoEvent', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.chat_rounded),
+            icon: const Icon(Icons.chat_rounded, color: Colors.black),
             onPressed: _navigateToChat,
-            tooltip: 'Chat',
           ),
         ],
       ),
-      body: _pages[_selectedIndex],
-      bottomNavigationBar: ClipRRect(
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-        ),
-        child: BottomNavigationBar(
-          type: BottomNavigationBarType.fixed,
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
-          backgroundColor: Colors.white,
-          selectedItemColor: Colors.black87,
-          unselectedItemColor: Colors.black45,
-          selectedLabelStyle: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+      // MODIFICA: Usiamo IndexedStack per non perdere lo stato delle pagine (e i filtri) quando navighi
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _pages,
+      ),
+      
+      bottomNavigationBar: BottomAppBar(
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 8,
+        color: Colors.white,
+        child: Container(
+          height: 60,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildNavButton(Icons.home_rounded, "Home", 0),
+              _buildNavButton(Icons.favorite_rounded, "Likes", 1),
+              const SizedBox(width: 40), // Spazio centrale per il FAB
+              _buildNavButton(Icons.map_rounded, "Mappa", 3),
+              _buildNavButton(Icons.person_rounded, "Profilo", 4),
+            ],
           ),
-          unselectedLabelStyle: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-          ),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_rounded),
-              activeIcon: Icon(Icons.home_rounded),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.favorite_outline_rounded),
-              activeIcon: Icon(Icons.favorite_rounded),
-              label: 'Likes',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.add_box_outlined),
-              activeIcon: Icon(Icons.add_box),
-              label: 'Add',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.map_rounded),
-              activeIcon: Icon(Icons.map_rounded),
-              label: 'Map',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_rounded),
-              activeIcon: Icon(Icons.person_rounded),
-              label: 'Profile',
-            ),
-          ],
         ),
       ),
+
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.amber,
+        shape: const CircleBorder(),
         elevation: 4,
         onPressed: () => _openAddEventFromFab(context),
-        child: const Icon(Icons.add, color: Colors.black),
+        child: const Icon(Icons.add, color: Colors.black, size: 30),
       ),
     );
   }
-}
 
-// Tab centrale: lista rapida eventi (opzionale)
-class _AddEventTab extends StatelessWidget {
-  const _AddEventTab({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final events = Provider.of<EventProvider>(context).events;
-    final venues = Provider.of<VenueProvider>(context).venues;
-    final Map<String, Venue> venuesById = {for (var v in venues) v.id: v};
-
-    if (events.isEmpty) {
-      return const Center(
-        child: Text('Crea un nuovo evento con il pulsante +'),
-      );
-    }
-
-    return ListView.builder(
-      itemCount: events.length,
-      itemBuilder: (context, index) {
-        final e = events[index];
-        final venue = e.venueId != null ? venuesById[e.venueId!] : null;
-        return ListTile(
-          title: Text(e.name),
-          subtitle: Text(
-            "${e.date.day}/${e.date.month}/${e.date.year}"
-            "${venue != null ? ' • ${venue.name}' : ''}",
-          ),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                // se usi EventDetailScreen, importa e mettilo qui:
-                // builder: (_) => EventDetailScreen(event: e),
-                builder: (_) => EventDetailScreen(event: e),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-// Likes REALI
-class _LikesPage extends StatelessWidget {
-  const _LikesPage({super.key});
-
-  Future<String> _getEmail() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('user_email') ?? '';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final events = Provider.of<EventProvider>(context).events;
-    final venues = Provider.of<VenueProvider>(context).venues;
-    final Map<String, Venue> venuesById = {for (var v in venues) v.id: v};
-    final likesProvider = Provider.of<LikesProvider>(context);
-
-    return FutureBuilder<String>(
-      future: _getEmail(),
-      builder: (context, snap) {
-        final email = snap.data ?? '';
-        if (email.isEmpty) {
-          return const Center(
-            child: Text('Effettua il login per vedere i tuoi preferiti'),
-          );
-        }
-
-        final likedIds = likesProvider.likesFor(email);
-        final likedEvents =
-            events.where((e) => likedIds.contains(e.id)).toList();
-
-        if (likedEvents.isEmpty) {
-          return const Center(
-            child: Text('Ancora nessun evento tra i preferiti'),
-          );
-        }
-
-        return ListView.builder(
-          itemCount: likedEvents.length,
-          itemBuilder: (context, index) {
-            final e = likedEvents[index];
-            final venue =
-                e.venueId != null ? venuesById[e.venueId!] : null;
-            return ListTile(
-              title: Text(e.name),
-              subtitle: Text(
-                "${e.date.day}/${e.date.month}/${e.date.year}"
-                "${venue != null ? ' • ${venue.name}' : ''}",
-              ),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    // idem qui, usa EventDetailScreen
-                    builder: (_) => EventDetailScreen(event: e),
-                  ),
-                );
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-// Placeholder Map
-class _MapPlaceholderPage extends StatelessWidget {
-  const _MapPlaceholderPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Text('Mappa eventi (in arrivo)'),
+  Widget _buildNavButton(IconData icon, String label, int index) {
+    bool isSelected = _selectedIndex == index;
+    return GestureDetector(
+      onTap: () => _onItemTapped(index),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: isSelected ? Colors.amber[800] : Colors.grey),
+          Text(label, style: TextStyle(
+            fontSize: 10, 
+            color: isSelected ? Colors.amber[800] : Colors.grey,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal
+          )),
+        ],
+      ),
     );
   }
 }

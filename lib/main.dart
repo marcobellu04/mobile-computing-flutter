@@ -26,11 +26,9 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        // carica eventi salvati
         ChangeNotifierProvider(
           create: (_) => EventProvider()..loadEvents(),
         ),
-        // carica strutture salvate
         ChangeNotifierProvider(
           create: (_) => VenueProvider()..loadVenues(),
         ),
@@ -51,47 +49,57 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-
     return MaterialApp(
       title: 'GEOEVENT',
       debugShowCheckedModeBanner: false,
+      
+      // Forza l'app in modalità chiara
+      themeMode: ThemeMode.light, 
+      
       theme: ThemeData(
         brightness: Brightness.light,
         scaffoldBackgroundColor: Colors.white,
-        primarySwatch: Colors.deepPurple,
+        primarySwatch: Colors.amber,
+        primaryColor: Colors.amber,
         fontFamily: 'Lato',
+        
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          elevation: 0,
+          iconTheme: IconThemeData(color: Colors.black),
+          titleTextStyle: TextStyle(
+            color: Colors.black,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Lato',
+          ),
+        ),
+
         textTheme: const TextTheme(
-          bodyMedium: TextStyle(fontWeight: FontWeight.normal),
-          bodyLarge: TextStyle(fontWeight: FontWeight.normal),
-          titleLarge: TextStyle(fontWeight: FontWeight.bold),
-          headlineMedium: TextStyle(fontWeight: FontWeight.bold),
-          headlineLarge: TextStyle(fontWeight: FontWeight.bold),
-          labelLarge: TextStyle(fontWeight: FontWeight.bold),
+          bodyMedium: TextStyle(color: Colors.black87),
+          bodyLarge: TextStyle(color: Colors.black),
+          titleLarge: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+        ),
+
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.amber,
+            foregroundColor: Colors.black,
+            elevation: 0,
+            textStyle: const TextStyle(fontWeight: FontWeight.bold),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
         ),
       ),
-      darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: Colors.black,
-        primarySwatch: Colors.deepPurple,
-        fontFamily: 'Lato',
-        textTheme: const TextTheme(
-          bodyMedium: TextStyle(fontWeight: FontWeight.normal),
-          bodyLarge: TextStyle(fontWeight: FontWeight.normal),
-          titleLarge: TextStyle(fontWeight: FontWeight.bold),
-          headlineMedium: TextStyle(fontWeight: FontWeight.bold),
-          headlineLarge: TextStyle(fontWeight: FontWeight.bold),
-          labelLarge: TextStyle(fontWeight: FontWeight.bold),
-        ),
-      ),
-      themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+
       initialRoute: '/login',
       routes: {
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
         '/home': (context) => HomeScreen(currentUserEmail: currentUserEmail),
         '/profile_edit': (context) => const UserProfilePage(),
-        '/map': (context) => const MapScreen(),  // aggiunta rotta MapScreen
+        '/map': (context) => const MapScreen(),
       },
     );
   }
