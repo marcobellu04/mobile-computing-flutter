@@ -8,7 +8,6 @@ class EventProvider extends ChangeNotifier {
 
   List<Event> get events => _events;
 
-  // Costruttore che carica i dati all'avvio
   EventProvider() {
     loadEvents();
   }
@@ -23,7 +22,6 @@ class EventProvider extends ChangeNotifier {
     if (data != null) {
       try {
         final List list = jsonDecode(data);
-        // Event.fromMap ora include automaticamente imagePath
         _events = list.map((e) => Event.fromMap(e as Map<String, dynamic>)).toList();
         notifyListeners();
       } catch (e) {
@@ -34,7 +32,6 @@ class EventProvider extends ChangeNotifier {
 
   Future<void> _saveEvents() async {
     final prefs = await SharedPreferences.getInstance();
-    // Il toMap() ora include imagePath, quindi verrà salvato nel JSON
     final list = _events.map((e) => e.toMap()).toList();
     await prefs.setString('events', jsonEncode(list));
   }
@@ -52,13 +49,16 @@ class EventProvider extends ChangeNotifier {
   void updateEvent(Event updatedEvent) {
     final index = _events.indexWhere((e) => e.id == updatedEvent.id);
     if (index != -1) {
+      // ✅ Verifica che l'evento aggiornato mantenga le coordinate
+      if (updatedEvent.lat == null || updatedEvent.lng == null) {
+        print("ALERT: Tentativo di aggiornamento evento con coordinate NULL");
+      }
       _events[index] = updatedEvent;
       _saveEvents();
       notifyListeners();
     }
   }
 
-  // Metodo specifico per aggiornare solo l'immagine se necessario
   void updateEventImage(String eventId, String newPath) {
     final index = _events.indexWhere((e) => e.id == eventId);
     if (index != -1) {
@@ -69,20 +69,35 @@ class EventProvider extends ChangeNotifier {
   }
 
   // ─────────────────────────────
-  // PARTECIPAZIONE
+  // PARTECIPAZIONE (Con controlli log)
   // ─────────────────────────────
 
   void joinEvent(String eventId, String email) {
     final index = _events.indexWhere((e) => e.id == eventId);
     if (index == -1) return;
+    
     final event = _events[index];
-    if (event.participants.contains(email)) return;
-    if (event.participants.length >= event.maxParticipants) return;
-
-    // copyWith ora mantiene imagePath internamente
-    final updated = event.copyWith(
-      participants: [...event.participants, email],
-    );
+   final updated = Event(
+    id: event.id,
+    name: event.name,
+    description: event.description,
+    date: event.date,
+    ownerEmail: event.ownerEmail,
+    ownerName: event.ownerName,
+    ownerSurname: event.ownerSurname,
+    maxParticipants: event.maxParticipants,
+    participants: [...event.participants, email], // Aggiungiamo solo questo
+    pendingRequests: event.pendingRequests,
+    listType: event.listType,
+    venueId: event.venueId,
+    fullAddress: event.fullAddress,
+    ageRestrictionType: event.ageRestrictionType,
+    ageRestrictionValue: event.ageRestrictionValue,
+    zone: event.zone,
+    lat: event.lat, // FORZATO
+    lng: event.lng, // FORZATO
+    imagePath: event.imagePath,
+  );
     _events[index] = updated;
     _saveEvents();
     notifyListeners();

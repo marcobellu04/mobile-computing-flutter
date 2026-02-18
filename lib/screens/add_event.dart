@@ -73,7 +73,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '📍 ${eventLat!.toStringAsFixed(4)}, ${eventLng!.toStringAsFixed(4)}',
+              '📍 Coordinate impostate: ${eventLat!.toStringAsFixed(4)}, ${eventLng!.toStringAsFixed(4)}',
             ),
           ),
         );
@@ -84,7 +84,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Errore: $e')),
+        SnackBar(content: Text('Errore geocodifica: $e')),
       );
     }
   }
@@ -101,17 +101,19 @@ class _AddEventScreenState extends State<AddEventScreen> {
   }
 
   void _saveEvent() {
+    // Validazione form e data
     if (!_formKey.currentState!.validate() || _selectedDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Compila tutti i campi e seleziona data')),
+        const SnackBar(content: Text('Compila i campi obbligatori e seleziona una data')),
       );
       return;
     }
 
+    // Validazione specifica per l'età se attivata
     if (_ageRestrictionType != AgeRestrictionType.none &&
         (_ageRestrictionValue == null || _ageRestrictionValue! <= 0)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Valore età non valido')),
+        const SnackBar(content: Text('Inserisci un valore valido per l\'età')),
       );
       return;
     }
@@ -147,7 +149,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
     eventProvider.addEvent(newEvent);
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('✅ ${_nameController.text} salvato')),
+      SnackBar(content: Text('✅ Evento "${_nameController.text}" creato!')),
     );
   }
 
@@ -156,118 +158,190 @@ class _AddEventScreenState extends State<AddEventScreen> {
     final venues = Provider.of<VenueProvider>(context).venues;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Aggiungi Evento')),
+      appBar: AppBar(
+        title: const Text('Aggiungi Evento'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
-          child: Column(children: [
-            GestureDetector(
-              onTap: _pickImage,
-              child: Container(
-                height: 200,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.grey[900],
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey[700]!),
-                ),
-                child: _imageFile == null
-                    ? const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.add_photo_alternate,
-                                size: 50, color: Colors.white70),
-                            Text('Aggiungi foto',
-                                style: TextStyle(color: Colors.white70)),
-                          ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // --- SEZIONE IMMAGINE ---
+              GestureDetector(
+                onTap: _pickImage,
+                child: Container(
+                  height: 200,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: _imageFile == null
+                      ? const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.add_photo_alternate, size: 50, color: Colors.grey),
+                              Text('Aggiungi foto evento', style: TextStyle(color: Colors.grey)),
+                            ],
+                          ),
+                        )
+                      : ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.file(_imageFile!, fit: BoxFit.cover),
                         ),
-                      )
-                    : ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.file(_imageFile!, fit: BoxFit.cover),
-                      ),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Nome Evento *'),
-              validator: (v) => v?.trim().isEmpty ?? true ? 'Obbligatorio' : null,
-            ),
-            TextFormField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(labelText: 'Descrizione'),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                ElevatedButton(
+              const SizedBox(height: 20),
+
+              // --- CAMPI TESTO ---
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(labelText: 'Nome Evento *', border: OutlineInputBorder()),
+                validator: (v) => v?.trim().isEmpty ?? true ? 'Campo obbligatorio' : null,
+              ),
+              const SizedBox(height: 15),
+              TextFormField(
+                controller: _descriptionController,
+                decoration: const InputDecoration(labelText: 'Descrizione', border: OutlineInputBorder()),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 15),
+
+              // --- DATA ---
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(_selectedDate == null 
+                  ? 'Nessuna data selezionata' 
+                  : 'Data: ${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}'),
+                trailing: ElevatedButton(
                   onPressed: _selectDate,
-                  child: Text(
-                    _selectedDate == null
-                        ? 'Seleziona data *'
-                        : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
+                  child: const Text('Scegli Data'),
+                ),
+              ),
+              const Divider(),
+
+              // --- POSIZIONE ---
+              TextFormField(
+                controller: _addressController,
+                decoration: InputDecoration(
+                  labelText: 'Indirizzo o Luogo (es. EUR, Roma)',
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.location_searching),
+                    onPressed: _geocodeAddress,
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _addressController,
-              decoration: InputDecoration(
-                labelText: 'Indirizzo (es. EUR, Colosseo)',
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.location_searching),
-                  onPressed: _geocodeAddress,
+                onFieldSubmitted: (_) => _geocodeAddress(),
+              ),
+              const SizedBox(height: 15),
+              TextFormField(
+                controller: _zoneController,
+                decoration: const InputDecoration(labelText: 'Zona (es. Roma Nord)', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 15),
+
+              // --- PARTECIPANTI E LISTE ---
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      initialValue: _maxParticipants.toString(),
+                      decoration: const InputDecoration(labelText: 'Max Partecipanti', border: OutlineInputBorder()),
+                      keyboardType: TextInputType.number,
+                      onChanged: (v) => _maxParticipants = int.tryParse(v) ?? 10,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: DropdownButtonFormField<ListType>(
+                      value: _listType,
+                      decoration: const InputDecoration(labelText: 'Tipo lista', border: OutlineInputBorder()),
+                      items: const [
+                        DropdownMenuItem(value: ListType.open, child: Text('Aperta')),
+                        DropdownMenuItem(value: ListType.closed, child: Text('Chiusa')),
+                      ],
+                      onChanged: (v) => setState(() => _listType = v!),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 15),
+
+              // --- STRUTTURA ---
+              DropdownButtonFormField<String>(
+                value: _selectedVenueId,
+                decoration: const InputDecoration(labelText: 'Collega a una tua struttura', border: OutlineInputBorder()),
+                items: venues.map((v) => DropdownMenuItem(value: v.id, child: Text(v.name))).toList(),
+                onChanged: (v) => setState(() => _selectedVenueId = v),
+              ),
+              const SizedBox(height: 20),
+
+              // --- SEZIONE ETÀ (DINAMICA) ---
+              const Text("Restrizioni Età", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<AgeRestrictionType>(
+                value: _ageRestrictionType,
+                decoration: const InputDecoration(border: OutlineInputBorder()),
+                items: const [
+                  DropdownMenuItem(value: AgeRestrictionType.none, child: Text('Nessuna restrizione')),
+                  DropdownMenuItem(value: AgeRestrictionType.over, child: Text('Età minima (Over)')),
+                  DropdownMenuItem(value: AgeRestrictionType.under, child: Text('Età massima (Under)')),
+                ],
+                onChanged: (v) => setState(() {
+                  _ageRestrictionType = v!;
+                  if (_ageRestrictionType == AgeRestrictionType.none) _ageRestrictionValue = null;
+                }),
+              ),
+              
+              // Campo che appare solo se serve inserire l'età
+              if (_ageRestrictionType != AgeRestrictionType.none)
+                Padding(
+                  padding: const EdgeInsets.only(top: 15),
+                  child: TextFormField(
+                    decoration: InputDecoration(
+                      labelText: _ageRestrictionType == AgeRestrictionType.over ? 'Età minima' : 'Età massima',
+                      hintText: 'Inserisci numero (es. 18)',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.cake),
+                    ),
+                    keyboardType: TextInputType.number,
+                    onChanged: (v) => setState(() => _ageRestrictionValue = int.tryParse(v)),
+                    validator: (v) {
+                      if (_ageRestrictionType != AgeRestrictionType.none) {
+                        if (v == null || v.isEmpty) return 'Inserisci l\'età';
+                        if (int.tryParse(v) == null) return 'Inserisci un numero';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+
+              const SizedBox(height: 40),
+
+              // --- TASTO SALVA ---
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton(
+                  onPressed: _saveEvent,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.amber,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  ),
+                  child: const Text('CREA EVENTO', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ),
               ),
-              onFieldSubmitted: (_) => _geocodeAddress(),
-            ),
-            TextFormField(
-              controller: _zoneController,
-              decoration: const InputDecoration(labelText: 'Zona (opzionale)'),
-            ),
-            TextFormField(
-              initialValue: _maxParticipants.toString(),
-              decoration:
-                  const InputDecoration(labelText: 'Numero massimo partecipanti'),
-              keyboardType: TextInputType.number,
-              onChanged: (v) => _maxParticipants = int.tryParse(v) ?? 10,
-            ),
-            DropdownButtonFormField<ListType>(
-              value: _listType,
-              decoration: const InputDecoration(labelText: 'Tipo lista'),
-              items: const [
-                DropdownMenuItem(value: ListType.open, child: Text('Lista Aperta')),
-                DropdownMenuItem(value: ListType.closed, child: Text('Lista Chiusa')),
-              ],
-              onChanged: (v) => setState(() => _listType = v!),
-            ),
-            DropdownButtonFormField<String>(
-              value: _selectedVenueId,
-              decoration: const InputDecoration(labelText: 'Struttura'),
-              items: venues.map((v) => DropdownMenuItem(value: v.id, child: Text(v.name))).toList(),
-              onChanged: (v) => setState(() => _selectedVenueId = v),
-            ),
-            DropdownButtonFormField<AgeRestrictionType>(
-              value: _ageRestrictionType,
-              decoration: const InputDecoration(labelText: 'Restrizione età'),
-              items: const [
-                DropdownMenuItem(value: AgeRestrictionType.none, child: Text('Nessuna')),
-                DropdownMenuItem(value: AgeRestrictionType.over, child: Text('Età minima')),
-                DropdownMenuItem(value: AgeRestrictionType.under, child: Text('Età massima')),
-              ],
-              onChanged: (v) => setState(() => _ageRestrictionType = v!),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(onPressed: _saveEvent, child: const Text('Salva Evento')),
-            ),
-          ]),
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
     );

@@ -78,7 +78,11 @@ class _MapScreenState extends State<MapScreen> {
     final markers = <Marker>[];
 
     for (final e in events) {
-      if (e.lat == null || e.lng == null) continue;
+      // DEBUG: Vediamo se l'evento esiste ancora ma non ha le coordinate
+      if (e.lat == null || e.lng == null) {
+        print("ATTENZIONE: L'evento ${e.name} è sparito perché lat/lng sono NULL!");
+        continue;
+      }
 
       final pos = LatLng(e.lat!, e.lng!);
       

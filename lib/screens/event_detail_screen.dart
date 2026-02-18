@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/event.dart';
 import '../providers/event_provider.dart';
-import 'chat_page.dart'; // Assicurati che il percorso sia corretto
+import 'chat_page.dart'; 
 
 class EventDetailScreen extends StatefulWidget {
   final Event event;
@@ -73,28 +73,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     if (_isIn(current)) return;
     if (_isFull(current)) { _snack('Evento pieno'); return; }
 
-    List<String> newParticipants = [...current.participants];
-    List<String> newRequests = [...current.pendingRequests];
-
     if (current.listType == ListType.open) {
-      newParticipants.add(_me);
+      provider.joinEvent(current.id, _me);
       _snack('Partecipazione confermata!');
     } else {
       if (_hasRequested(current)) return;
-      newRequests.add(_me);
+      provider.requestToJoin(current.id, _me);
       _snack('Richiesta inviata!');
     }
-
-    provider.updateEvent(Event(
-      id: current.id, name: current.name, description: current.description,
-      date: current.date, ownerEmail: current.ownerEmail, ownerName: current.ownerName,
-      ownerSurname: current.ownerSurname, maxParticipants: current.maxParticipants,
-      participants: newParticipants, pendingRequests: newRequests,
-      listType: current.listType, venueId: current.venueId, fullAddress: current.fullAddress,
-      ageRestrictionType: current.ageRestrictionType, ageRestrictionValue: current.ageRestrictionValue,
-      zone: current.zone,
-      imagePath: current.imagePath, // ✅ IMPORTANTE: Mantieni il percorso immagine
-    ));
     setState(() {});
   }
 
@@ -104,6 +90,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final dateStr = "${current.date.day}/${current.date.month}/${current.date.year}";
     final isFull = _isFull(current);
     final alreadyIn = _isIn(current);
+    final isOwner = _isOwner(current);
+    final hasRequested = _hasRequested(current);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -113,7 +101,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         actions: [
-          if (_isOwner(current))
+          if (isOwner)
             IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.red),
               onPressed: () => _confirmDelete(context, current.id),
@@ -121,9 +109,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         ],
       ),
       body: ListView(
-        padding: EdgeInsets.zero, // Zero padding per far arrivare l'immagine ai bordi
+        padding: EdgeInsets.zero, 
         children: [
-          // ✅ NUOVA SEZIONE: FOTO EVENTO
           Hero(
             tag: 'event-${current.id}',
             child: Container(
@@ -160,7 +147,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 Text(current.description ?? 'Nessuna descrizione.', style: const TextStyle(fontSize: 15, color: Colors.black54, height: 1.4)),
                 const SizedBox(height: 20),
                 
-                // BOX PARTECIPANTI
+                // BOX PARTECIPANTI (Stile originale)
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(15)),
@@ -172,51 +159,103 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     ],
                   ),
                 ),
+                
                 const SizedBox(height: 30),
 
-                // ✅ NUOVO TASTO: CONTATTA ORGANIZZATORE
-                SizedBox(
-                  width: double.infinity,
-                  height: 55,
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ChatPage(
-                            userEmail: _me,
-                            venueEmail: current.ownerEmail, // Email dell'organizzatore
-                            venueName: "${current.ownerName} ${current.ownerSurname}",
-                          ),
+                // --- SEZIONE SPECIALE OWNER: RICHIESTE E LISTA ---
+                if (isOwner) ...[
+                  if (current.pendingRequests.isNotEmpty) ...[
+                    const Text('RICHIESTE DA APPROVARE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.redAccent)),
+                    const SizedBox(height: 10),
+                    ...current.pendingRequests.map((email) => Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      child: ListTile(
+                        title: Text(email, style: const TextStyle(fontSize: 14)),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(icon: const Icon(Icons.check_circle, color: Colors.green), onPressed: () => context.read<EventProvider>().approveRequest(current.id, email)),
+                            IconButton(icon: const Icon(Icons.cancel, color: Colors.red), onPressed: () => context.read<EventProvider>().rejectRequest(current.id, email)),
+                          ],
                         ),
-                      );
-                    },
-                    icon: const Icon(Icons.chat_outlined),
-                    label: const Text("CONTATTA ORGANIZZATORE"),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.amber,
-                      side: const BorderSide(color: Colors.amber),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
+                      ),
+                    )).toList(),
+                    const SizedBox(height: 20),
+                  ],
+                  const Text('LISTA PARTECIPANTI', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  ...current.participants.map((email) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const CircleAvatar(backgroundColor: Colors.amber, child: Icon(Icons.person, color: Colors.white)),
+                    title: Text(email),
+                  )).toList(),
+                  const SizedBox(height: 20),
+                ],
 
-                // TASTO PARTECIPA
-                SizedBox(
-                  width: double.infinity,
-                  height: 55,
-                  child: ElevatedButton(
-                    onPressed: _joinOrRequest,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amber,
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                      elevation: 0,
+                // --- SEZIONE PULSANTI (Solo se non owner) ---
+                if (!isOwner) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    height: 55,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ChatPage(
+                              userEmail: _me,
+                              venueEmail: current.ownerEmail,
+                              venueName: "${current.ownerName} ${current.ownerSurname}",
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.chat_outlined),
+                      label: const Text("CONTATTA ORGANIZZATORE"),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.amber,
+                        side: const BorderSide(color: Colors.amber),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      ),
                     ),
-                    child: Text(alreadyIn ? 'SEI GIÀ ISCRITTO' : (isFull ? 'EVENTO PIENO' : 'PARTECIPA ORA'), style: const TextStyle(fontWeight: FontWeight.bold)),
                   ),
-                ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 55,
+                    child: ElevatedButton(
+                      onPressed: (alreadyIn || hasRequested || isFull) ? null : _joinOrRequest,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.amber,
+                        foregroundColor: Colors.black,
+                        disabledBackgroundColor: Colors.grey[300],
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        alreadyIn ? 'SEI GIÀ ISCRITTO' : 
+                        hasRequested ? 'RICHIESTA INVIATA' :
+                        (isFull ? 'EVENTO PIENO' : (current.listType == ListType.open ? 'PARTECIPA ORA' : 'INVIA RICHIESTA')), 
+                        style: const TextStyle(fontWeight: FontWeight.bold)
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  // Banner Owner
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(color: Colors.amber.withOpacity(0.5)),
+                    ),
+                    child: const Center(
+                      child: Text("STAI GESTENDO IL TUO EVENTO", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

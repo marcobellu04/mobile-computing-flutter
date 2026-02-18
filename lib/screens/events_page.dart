@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io'; // NECESSARIO PER USARE File()
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,7 +13,9 @@ import '../providers/filter_provider.dart';
 import '../providers/likes_provider.dart';
 import '../utils/filter_preferences.dart';
 import 'event_detail_screen.dart';
-import 'venue_detail_screen.dart'; // ✅ AGGIUNTO IMPORT DETTAGLIO STRUTTURA
+import 'venue_detail_screen.dart';
+import 'all_events_page.dart'; // ✅ DA CREARE
+import 'all_venues_page.dart'; // ✅ DA CREARE
 import '../widgets/filter_zone.dart';
 
 class EventsPage extends StatefulWidget {
@@ -88,7 +90,7 @@ class _EventsPageState extends State<EventsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // BARRA RICERCA
+            // --- BARRA RICERCA ---
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Container(
@@ -121,15 +123,26 @@ class _EventsPageState extends State<EventsPage> {
                 ),
               ),
 
+            // --- INTESTAZIONE EVENTI CON "MOSTRA TUTTO" ---
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                widget.onlyFavorites ? 'I tuoi Preferiti' : 'Eventi', 
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    widget.onlyFavorites ? 'I tuoi Preferiti' : 'Eventi in primo piano', 
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)
+                  ),
+                  if (filteredEvents.length > 5)
+                    TextButton(
+                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AllEventsPage())),
+                      child: const Text("Mostra tutto", style: TextStyle(color: Colors.amber)),
+                    ),
+                ],
               ),
             ),
 
-            // LISTA ORIZZONTALE EVENTI
+            // --- LISTA ORIZZONTALE EVENTI (MAX 5) ---
             SizedBox(
               height: 250,
               child: filteredEvents.isEmpty
@@ -137,7 +150,8 @@ class _EventsPageState extends State<EventsPage> {
                 : ListView.builder(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.only(left: 16),
-                    itemCount: filteredEvents.length,
+                    // ✅ LIMITE DI 5 ELEMENTI
+                    itemCount: filteredEvents.length > 5 ? 5 : filteredEvents.length,
                     itemBuilder: (context, index) {
                       return _EventCardHorizontal(
                         event: filteredEvents[index],
@@ -147,19 +161,33 @@ class _EventsPageState extends State<EventsPage> {
                   ),
             ),
 
+            // --- SEZIONE STRUTTURE (Solo se non siamo nei preferiti) ---
             if (!widget.onlyFavorites) ...[
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                child: Text('Strutture', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Strutture suggerite', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    if (venues.length > 5)
+                      TextButton(
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AllVenuesPage())),
+                        child: const Text("Mostra tutto", style: TextStyle(color: Colors.amber)),
+                      ),
+                  ],
+                ),
               ),
               SizedBox(
                 height: 180,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.only(left: 16),
-                  itemCount: venues.length,
-                  itemBuilder: (context, index) => _VenueCardHorizontal(venue: venues[index]),
-                ),
+                child: venues.isEmpty
+                  ? const Center(child: Text("Nessuna struttura disponibile"))
+                  : ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.only(left: 16),
+                      // ✅ LIMITE DI 5 ELEMENTI
+                      itemCount: venues.length > 5 ? 5 : venues.length,
+                      itemBuilder: (context, index) => _VenueCardHorizontal(venue: venues[index]),
+                    ),
               ),
             ],
             const SizedBox(height: 100),
@@ -169,6 +197,8 @@ class _EventsPageState extends State<EventsPage> {
     );
   }
 }
+
+// ... Resto dei widget _EventCardHorizontal e _VenueCardHorizontal invariati ...
 
 class _EventCardHorizontal extends StatelessWidget {
   final Event event;
