@@ -171,4 +171,23 @@ class EventProvider extends ChangeNotifier {
     _saveEvents();
     notifyListeners();
   }
+
+// --- NUOVI GETTER PER FILTRAGGIO PARTECIPAZIONI ---
+
+  List<Event> getUpcomingParticipations(String email) {
+    final now = DateTime.now();
+    return _events.where((e) => 
+      e.participants.contains(email) && 
+      (e.date.isAfter(now) || e.date.isAtSameMomentAs(now))
+    ).toList();
+  }
+
+  List<Event> getPastParticipations(String email) {
+    final now = DateTime.now();
+    return _events.where((e) => 
+      e.participants.contains(email) && 
+      e.date.isBefore(now)
+    ).toList();
+  }
+
 }

@@ -5,7 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/event.dart';
 import '../providers/event_provider.dart';
-import 'chat_page.dart'; 
+import 'chat_page.dart';
+import 'external_profile_screen.dart';
 
 class EventDetailScreen extends StatefulWidget {
   final Event event;
@@ -145,55 +146,59 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 const Text('Descrizione', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 Text(current.description ?? 'Nessuna descrizione.', style: const TextStyle(fontSize: 15, color: Colors.black54, height: 1.4)),
-                const SizedBox(height: 20),
+                const SizedBox(height: 25),
                 
-                // BOX PARTECIPANTI (Stile originale)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(15)),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Partecipanti', style: TextStyle(fontWeight: FontWeight.bold)),
-                      Text('${current.participants.length} / ${current.maxParticipants}', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 18)),
-                    ],
-                  ),
-                ),
-                
-                const SizedBox(height: 30),
-
-                // --- SEZIONE SPECIALE OWNER: RICHIESTE E LISTA ---
-                if (isOwner) ...[
-                  if (current.pendingRequests.isNotEmpty) ...[
-                    const Text('RICHIESTE DA APPROVARE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.redAccent)),
-                    const SizedBox(height: 10),
-                    ...current.pendingRequests.map((email) => Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      child: ListTile(
-                        title: Text(email, style: const TextStyle(fontSize: 14)),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(icon: const Icon(Icons.check_circle, color: Colors.green), onPressed: () => context.read<EventProvider>().approveRequest(current.id, email)),
-                            IconButton(icon: const Icon(Icons.cancel, color: Colors.red), onPressed: () => context.read<EventProvider>().rejectRequest(current.id, email)),
-                          ],
-                        ),
-                      ),
-                    )).toList(),
-                    const SizedBox(height: 20),
+                // --- NUOVA SEZIONE PARTECIPANTI CON AVATAR ---
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Partecipanti', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text('${current.participants.length} / ${current.maxParticipants}', 
+                      style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
                   ],
-                  const Text('LISTA PARTECIPANTI', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(height: 15),
+                if (current.participants.isEmpty)
+                  const Text("Nessun partecipante ancora", style: TextStyle(color: Colors.grey))
+                else
+                  SizedBox(
+                    height: 90,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: current.participants.length,
+                      itemBuilder: (context, index) => _ParticipantAvatar(email: current.participants[index]),
+                    ),
+                  ),
+                
+                const SizedBox(height: 20),
+
+                // --- SEZIONE SPECIALE OWNER: RICHIESTE ---
+                if (isOwner && current.pendingRequests.isNotEmpty) ...[
+                  const Divider(),
                   const SizedBox(height: 10),
-                  ...current.participants.map((email) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const CircleAvatar(backgroundColor: Colors.amber, child: Icon(Icons.person, color: Colors.white)),
-                    title: Text(email),
+                  const Text('RICHIESTE DA APPROVARE', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.redAccent)),
+                  const SizedBox(height: 10),
+                  ...current.pendingRequests.map((email) => Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    elevation: 0,
+                    color: Colors.grey[50],
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    child: ListTile(
+                      title: Text(email, style: const TextStyle(fontSize: 14)),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(icon: const Icon(Icons.check_circle, color: Colors.green), onPressed: () => context.read<EventProvider>().approveRequest(current.id, email)),
+                          IconButton(icon: const Icon(Icons.cancel, color: Colors.red), onPressed: () => context.read<EventProvider>().rejectRequest(current.id, email)),
+                        ],
+                      ),
+                    ),
                   )).toList(),
-                  const SizedBox(height: 20),
                 ],
 
-                // --- SEZIONE PULSANTI (Solo se non owner) ---
+                const SizedBox(height: 30),
+
+                // --- SEZIONE PULSANTI ---
                 if (!isOwner) ...[
                   SizedBox(
                     width: double.infinity,
@@ -242,7 +247,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     ),
                   ),
                 ] else ...[
-                  // Banner Owner
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
@@ -264,3 +268,46 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     );
   }
 }
+
+// --- WIDGET PER L'AVATAR DEL PARTECIPANTE ---
+class _ParticipantAvatar extends StatelessWidget {
+  final String email;
+  const _ParticipantAvatar({required this.email});
+
+  @override
+  Widget build(BuildContext context) {
+    // Estraiamo un nome dall'email per ora (es: mario.rossi@gmail.com -> Mario)
+    String displayName = email.split('@')[0].split('.')[0];
+    displayName = displayName[0].toUpperCase() + displayName.substring(1);
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => ExternalProfileScreen(email: email)),
+        );
+      },
+      child: Container(
+        width: 70,
+        margin: const EdgeInsets.only(right: 10),
+        child: Column(
+          children: [
+            CircleAvatar(
+              radius: 25,
+              backgroundColor: Colors.amber[100],
+              child: Text(displayName[0], style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              displayName,
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
