@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart'; // Import standard
 import 'package:shared_preferences/shared_preferences.dart';
 import '../screens/home.dart'; 
-import 'register.dart'; // Assicurati che il percorso sia corretto
+import 'register.dart'; 
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,6 +17,52 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
+  // --- FUNZIONE GOOGLE LOGIN (VERSIONE 6.2.1) ---
+  Future<void> _signInWithGoogle() async {
+    try {
+      // Inizializziamo il plugin
+      final GoogleSignIn googleSignIn = GoogleSignIn();
+      
+      // 1. Apre la tendina per scegliere l'account Google
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+      
+      if (googleUser == null) return; // L'utente ha annullato il login
+
+      // 2. Ottiene i dati di autenticazione (token)
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      // 3. Crea la credenziale per Firebase usando i token ricevuti
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // 4. Esegue l'accesso su Firebase
+      final UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      final String? email = userCredential.user?.email;
+
+      if (email != null) {
+        // Salva l'email nelle SharedPreferences (per il tuo sistema attuale)
+        await _saveLoggedInUser(email);
+
+        if (!mounted) return;
+        
+        // Naviga alla Home e pulisce lo stack delle pagine
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (_) => HomeScreen(currentUserEmail: email),
+          ),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      print("Errore Google Login: $e");
+      _showError('Errore durante l\'accesso con Google: $e');
+    }
+  }
+
+  // --- LOGICA LOGIN TRADIZIONALE (TUA ESISTENTE) ---
   Future<List<Map<String, dynamic>>> _getUsers() async {
     final prefs = await SharedPreferences.getInstance();
     final usersString = prefs.getString('users');
@@ -62,7 +110,6 @@ class _LoginScreenState extends State<LoginScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  // Funzione per navigare alla registrazione
   void _goToRegister() {
     Navigator.push(
       context,
@@ -73,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -85,10 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   alignment: Alignment.topRight,
                   child: TextButton(
                     onPressed: _goToRegister,
-                    child: const Text(
-                      'Sign up',
-                      style: TextStyle(color: Colors.black87),
-                    ),
+                    child: const Text('Sign up', style: TextStyle(color: Colors.black87)),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -146,8 +190,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                     ),
-                    onPressed: () {},
-                    icon: const Icon(Icons.g_mobiledata, size: 28),
+                    onPressed: _signInWithGoogle, // Collegato qui
+                    icon: const Icon(Icons.g_mobiledata, size: 28, color: Colors.red),
                     label: const Text('Continue with Google', style: TextStyle(color: Colors.black87)),
                   ),
                 ),
