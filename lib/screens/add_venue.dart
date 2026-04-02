@@ -34,12 +34,36 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
   final ImagePicker _picker = ImagePicker();
   double? _lat, _lng;
 
+  // --- STILE A PILLOLA COERENTE ---
+  InputDecoration _pillInput(String label, IconData icon, {Widget? suffix}) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: Colors.grey),
+      suffixIcon: suffix,
+      filled: true,
+      fillColor: Colors.grey[50],
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(30),
+        borderSide: const BorderSide(color: Colors.grey, width: 1),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(30),
+        borderSide: const BorderSide(color: Colors.amber, width: 2),
+      ),
+    );
+  }
+
   Future<void> _pickImage() async {
     final XFile? picked = await _picker.pickImage(source: ImageSource.gallery);
     if (picked != null) setState(() => _imageFile = File(picked.path));
   }
 
   Future<void> _geocodeAddress() async {
+    if (addressController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Inserisci un indirizzo!')));
+      return;
+    }
     try {
       final locations = await locationFromAddress(addressController.text); 
       if (locations.isNotEmpty) {
@@ -48,7 +72,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
           _lng = locations.first.longitude;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('📍 ${_lat!.toStringAsFixed(4)}, ${_lng!.toStringAsFixed(4)}')),
+          const SnackBar(content: Text('📍 Struttura localizzata sulla mappa!')),
         );
       }
     } catch (e) {
@@ -77,7 +101,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
       email: emailController.text.trim(),
       lat: _lat ?? 41.9028,
       lng: _lng ?? 12.4964,
-      imagePath: _imageFile?.path, // Mantengo questo come nel tuo originale
+      imagePath: _imageFile?.path,
     );
 
     venueProvider.addVenue(newVenue);
@@ -90,51 +114,97 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("📍 Aggiungi Venue")),
+      appBar: AppBar(
+        title: const Text("Aggiungi Struttura", style: TextStyle(fontWeight: FontWeight.bold)),
+        centerTitle: true,
+      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(children: [
-          GestureDetector(
-            onTap: _pickImage,
-            child: Container(
-              height: 200,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.grey[900],
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey[700]!),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            // --- BOX FOTO ---
+            GestureDetector(
+              onTap: _pickImage,
+              child: Container(
+                height: 180,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(25),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: _imageFile == null
+                    ? const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.add_business_outlined, size: 45, color: Colors.amber),
+                          Text('Aggiungi Foto Struttura', style: TextStyle(color: Colors.grey)),
+                        ],
+                      )
+                    : ClipRRect(
+                        borderRadius: BorderRadius.circular(25),
+                        child: Image.file(_imageFile!, fit: BoxFit.cover),
+                      ),
               ),
-              child: _imageFile == null
-                  ? const Icon(Icons.add_photo_alternate, size: 50, color: Colors.white70)
-                  : ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.file(_imageFile!, fit: BoxFit.cover),
-                    ),
             ),
-          ),
-          const SizedBox(height: 16),
-          TextField(controller: nameController, decoration: const InputDecoration(labelText: "Nome")),
-          TextField(
-            controller: capacityController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: "Capienza"),
-          ),
-          TextField(
-            controller: addressController,
-            decoration: const InputDecoration(labelText: "Indirizzo", suffixIcon: Icon(Icons.map)),
-          ),
-          TextButton(onPressed: _geocodeAddress, child: const Text('Trova coordinate')),
-          TextField(
-            controller: emailController,
-            keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(labelText: "Email"),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(onPressed: _saveVenue, child: const Text("Salva Venue")),
-          ),
-        ]),
+            const SizedBox(height: 25),
+
+            // --- CAMPI TESTO ---
+            TextField(
+              controller: nameController, 
+              decoration: _pillInput("Nome Struttura", Icons.business_outlined),
+            ),
+            const SizedBox(height: 15),
+
+            TextField(
+              controller: capacityController,
+              keyboardType: TextInputType.number,
+              decoration: _pillInput("Capienza Massima", Icons.people_outline),
+            ),
+            const SizedBox(height: 15),
+
+            TextField(
+              controller: addressController,
+              decoration: _pillInput(
+                "Indirizzo", 
+                Icons.map_outlined,
+                suffix: IconButton(
+                  icon: const Icon(Icons.gps_fixed, color: Colors.amber),
+                  onPressed: _geocodeAddress,
+                ),
+              ),
+              onSubmitted: (_) => _geocodeAddress(),
+            ),
+            const SizedBox(height: 15),
+
+            TextField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: _pillInput("Email di contatto", Icons.alternate_email),
+            ),
+            const SizedBox(height: 35),
+
+            // --- TASTO SALVA ---
+            SizedBox(
+              width: double.infinity,
+              height: 55,
+              child: ElevatedButton(
+                onPressed: _saveVenue,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber,
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  elevation: 2,
+                ),
+                child: const Text(
+                  "SALVA STRUTTURA", 
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }

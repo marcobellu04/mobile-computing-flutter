@@ -8,11 +8,6 @@ import 'profile_page.dart';
 import 'chat_list_page.dart';
 import 'add_event.dart';
 import 'add_venue.dart';
-import 'event_detail_screen.dart';
-import '../models/event.dart';
-import '../models/venue.dart';
-import '../providers/event_provider.dart';
-import '../providers/venue_provider.dart';
 import '../providers/likes_provider.dart';
 import 'map_screen.dart';
 
@@ -27,24 +22,20 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-
-  // Questa è la lista che gestisce la navigazione tra le tue pagine
   late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
-
-    // Carica i like dell'utente corrente all'avvio
     Provider.of<LikesProvider>(context, listen: false)
         .loadForUser(widget.currentUserEmail);
 
     _pages = [
-      const EventsPage(),           // 0 - Home
-      const EventsPage(onlyFavorites: true), // 1 - MODIFICATO: Ora carica i Preferiti veri
-      const SizedBox.shrink(),      // 2 - Spazio per il tasto centrale
-      const MapScreen(),            // 3 - Map
-      ProfilePage(                 // 4 - Profile
+      const EventsPage(),
+      const EventsPage(onlyFavorites: true),
+      const SizedBox.shrink(),
+      const MapScreen(),
+      ProfilePage(
         currentUserEmail: widget.currentUserEmail,
         profileUserEmail: widget.currentUserEmail,
         profileUserName: '',
@@ -53,7 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onItemTapped(int index) {
-    if (index == 2) return; // Evitiamo che clicchi sul "buco" del tasto +
+    if (index == 2) return;
     setState(() {
       _selectedIndex = index;
     });
@@ -67,23 +58,67 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- TUA LOGICA ORIGINALE INTEGRALE ---
+  // --- RESTYLING DEL DIALOG IN "BOTTOM SHEET" A PILLOLA ---
   Future<void> _openAddEventFromFab(BuildContext context) async {
-    final choice = await showDialog<String>(
+    final choice = await showModalBottomSheet<String>(
       context: context,
+      backgroundColor: Colors.transparent, // Per vedere l'effetto arrotondato
       builder: (context) {
-        return SimpleDialog(
-          title: const Text('Cosa vuoi aggiungere?'),
-          children: [
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, 'event'),
-              child: const Text('Aggiungi evento'),
-            ),
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, 'venue'),
-              child: const Text('Aggiungi struttura'),
-            ),
-          ],
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)),
+              ),
+              const SizedBox(height: 20),
+              const Text('Cosa vuoi aggiungere?', 
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 25),
+              
+              // Tasto Aggiungi Evento (Stile Pillola Gialla)
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(context, 'event'),
+                  icon: const Icon(Icons.event, color: Colors.black),
+                  label: const Text('AGGIUNGI EVENTO', style: TextStyle(fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.amber,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              
+              // Tasto Aggiungi Struttura (Stile Pillola Grigia)
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.pop(context, 'venue'),
+                  icon: const Icon(Icons.business, color: Colors.black),
+                  label: const Text('AGGIUNGI STRUTTURA', style: TextStyle(fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.black,
+                    side: const BorderSide(color: Colors.grey),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
         );
       },
     );
@@ -108,46 +143,35 @@ class _HomeScreenState extends State<HomeScreen> {
     if (email.isEmpty) return;
 
     if (choice == 'event') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => AddEventScreen(
-            ownerEmail: email,
-            ownerName: ownerName,
-            ownerSurname: ownerSurname,
-          ),
-        ),
-      );
+      Navigator.push(context, MaterialPageRoute(builder: (_) => AddEventScreen(
+            ownerEmail: email, ownerName: ownerName, ownerSurname: ownerSurname,
+      )));
     } else if (choice == 'venue') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => AddVenueScreen(
-            ownerEmail: email,
-            ownerName: ownerName,
-            ownerSurname: ownerSurname,
-          ),
-        ),
-      );
+      Navigator.push(context, MaterialPageRoute(builder: (_) => AddVenueScreen(
+            ownerEmail: email, ownerName: ownerName, ownerSurname: ownerSurname,
+      )));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBody: true, // Fondamentale per far vedere il contenuto dietro la barra curva
+      extendBody: true,
       appBar: AppBar(
-        title: const Text('GeoEvent', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        title: const Text('GeoEvent', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 22)),
+        centerTitle: false,
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.chat_rounded, color: Colors.black),
-            onPressed: _navigateToChat,
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: IconButton(
+              icon: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.black, size: 28),
+              onPressed: _navigateToChat,
+            ),
           ),
         ],
       ),
-      // MODIFICA: Usiamo IndexedStack per non perdere lo stato delle pagine (e i filtri) quando navighi
       body: IndexedStack(
         index: _selectedIndex,
         children: _pages,
@@ -155,19 +179,19 @@ class _HomeScreenState extends State<HomeScreen> {
       
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
-        notchMargin: 8,
+        notchMargin: 10,
         color: Colors.white,
-        child: Container(
-          height: 60,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
+        elevation: 20,
+        child: SizedBox(
+          height: 65,
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavButton(Icons.home_rounded, "Home", 0),
-              _buildNavButton(Icons.favorite_rounded, "Likes", 1),
-              const SizedBox(width: 40), // Spazio centrale per il FAB
-              _buildNavButton(Icons.map_rounded, "Mappa", 3),
-              _buildNavButton(Icons.person_rounded, "Profilo", 4),
+              _buildNavButton(Icons.explore_outlined, Icons.explore, "Home", 0),
+              _buildNavButton(Icons.favorite_outline_rounded, Icons.favorite_rounded, "Likes", 1),
+              const SizedBox(width: 40), 
+              _buildNavButton(Icons.map_outlined, Icons.map_rounded, "Mappa", 3),
+              _buildNavButton(Icons.person_outline_rounded, Icons.person_rounded, "Profilo", 4),
             ],
           ),
         ),
@@ -177,27 +201,36 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.amber,
         shape: const CircleBorder(),
-        elevation: 4,
+        elevation: 6,
         onPressed: () => _openAddEventFromFab(context),
-        child: const Icon(Icons.add, color: Colors.black, size: 30),
+        child: const Icon(Icons.add, color: Colors.black, size: 32),
       ),
     );
   }
 
-  Widget _buildNavButton(IconData icon, String label, int index) {
+  Widget _buildNavButton(IconData iconOff, IconData iconOn, String label, int index) {
     bool isSelected = _selectedIndex == index;
     return GestureDetector(
       onTap: () => _onItemTapped(index),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: isSelected ? Colors.amber[800] : Colors.grey),
-          Text(label, style: TextStyle(
-            fontSize: 10, 
-            color: isSelected ? Colors.amber[800] : Colors.grey,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal
-          )),
-        ],
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? iconOn : iconOff, 
+              color: isSelected ? Colors.amber[900] : Colors.grey[600],
+              size: 26,
+            ),
+            const SizedBox(height: 4),
+            Text(label, style: TextStyle(
+              fontSize: 11, 
+              color: isSelected ? Colors.amber[900] : Colors.grey[600],
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500
+            )),
+          ],
+        ),
       ),
     );
   }

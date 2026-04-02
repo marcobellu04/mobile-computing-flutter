@@ -78,14 +78,9 @@ class _MapScreenState extends State<MapScreen> {
     final markers = <Marker>[];
 
     for (final e in events) {
-      // DEBUG: Vediamo se l'evento esiste ancora ma non ha le coordinate
-      if (e.lat == null || e.lng == null) {
-        print("ATTENZIONE: L'evento ${e.name} è sparito perché lat/lng sono NULL!");
-        continue;
-      }
+      if (e.lat == null || e.lng == null) continue;
 
       final pos = LatLng(e.lat!, e.lng!);
-      
       final bool isGuest = _me == 'guest@local';
       final bool isMine = e.participants.any((p) => p.trim().toLowerCase() == _me.trim().toLowerCase());
 
@@ -103,24 +98,16 @@ class _MapScreenState extends State<MapScreen> {
           point: pos,
           width: 50,
           height: 50,
-          // ✅ MODIFICA: La Key ora include il numero partecipanti per forzare il refresh del colore
           key: ValueKey('marker-${e.id}-$isMine-${e.participants.length}'), 
           child: GestureDetector(
             onTap: () async {
-              // ✅ MODIFICA: Attendiamo il ritorno dal dettaglio e ricarichiamo l'identità
               await Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => EventDetailScreen(event: e),
-                ),
+                MaterialPageRoute(builder: (_) => EventDetailScreen(event: e)),
               );
               _loadMe();
             },
-            child: Icon(
-              Icons.location_on,
-              size: 45,
-              color: color,
-            ),
+            child: Icon(Icons.location_on, size: 45, color: color),
           ),
         ),
       );
@@ -151,6 +138,7 @@ class _MapScreenState extends State<MapScreen> {
             ],
           ),
 
+          // POSIZIONE ORIGINALE (bottom: 110, right: 20)
           Positioned(
             bottom: 110,
             right: 20,
@@ -163,6 +151,7 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
 
+          // POSIZIONE ORIGINALE (top: 16, right: 16)
           Positioned(
             top: 16,
             right: 16,
@@ -174,24 +163,23 @@ class _MapScreenState extends State<MapScreen> {
   }
 }
 
-// ─────────────────────────────────────
-// UI COMPONENTS
-// ─────────────────────────────────────
-
 class _ZoomButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
-
   const _ZoomButton({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return FloatingActionButton.small( 
-      heroTag: null,
-      onPressed: onTap,
-      backgroundColor: Colors.white,
-      foregroundColor: Colors.black,
-      child: Icon(icon),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(25), // Forma a pillola
+        boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+      ),
+      child: IconButton(
+        icon: Icon(icon, color: Colors.black),
+        onPressed: onTap,
+      ),
     );
   }
 }
@@ -199,22 +187,23 @@ class _ZoomButton extends StatelessWidget {
 class _Legend extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: const [
-            _LegendItem(color: Colors.green, label: 'Aperto'),
-            SizedBox(height: 6),
-            _LegendItem(color: Colors.redAccent, label: 'Privato'),
-            SizedBox(height: 6),
-            // ✅ MODIFICA: Allineato il colore della legenda all'arancione usato sopra
-            _LegendItem(color: Colors.orange, label: 'Iscritto'),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(20), // Forma a pillola/arrotondata
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: const [
+          _LegendItem(color: Colors.green, label: 'Aperto'),
+          SizedBox(height: 6),
+          _LegendItem(color: Colors.redAccent, label: 'Privato'),
+          SizedBox(height: 6),
+          _LegendItem(color: Colors.orange, label: 'Iscritto'),
+        ],
       ),
     );
   }
@@ -232,7 +221,7 @@ class _LegendItem extends StatelessWidget {
       children: [
         Icon(Icons.location_on, color: color, size: 18),
         const SizedBox(width: 8),
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
       ],
     );
   }

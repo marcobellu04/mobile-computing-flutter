@@ -1,7 +1,7 @@
-import 'dart:io'; // Importante per File
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:image_picker/image_picker.dart'; // Importa image_picker
+import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
 import '../models/user.dart';
 
@@ -23,7 +23,6 @@ class _UserProfilePageState extends State<UserProfilePage> {
   bool _loading = true;
   String? _currentUserEmail;
   
-  // Variabili per l'immagine
   File? _imageFile;
   final ImagePicker _picker = ImagePicker();
 
@@ -31,6 +30,25 @@ class _UserProfilePageState extends State<UserProfilePage> {
   void initState() {
     super.initState();
     _loadUserEmailAndData();
+  }
+
+  // --- STILE A PILLOLA COERENTE ---
+  InputDecoration _pillInput(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: Colors.grey),
+      filled: true,
+      fillColor: Colors.grey[50],
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(30),
+        borderSide: const BorderSide(color: Colors.grey, width: 1),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(30),
+        borderSide: const BorderSide(color: Colors.amber, width: 2),
+      ),
+    );
   }
 
   Future<void> _loadUserEmailAndData() async {
@@ -43,7 +61,6 @@ class _UserProfilePageState extends State<UserProfilePage> {
       return;
     }
 
-    // Carica immagine salvata localmente (se presente)
     final savedImagePath = prefs.getString('user_image_$email');
     if (savedImagePath != null) {
       setState(() { _imageFile = File(savedImagePath); });
@@ -66,13 +83,6 @@ class _UserProfilePageState extends State<UserProfilePage> {
     }
   }
 
-  Future<void> _pickImage() async {
-    final XFile? picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
-    if (picked != null) {
-      setState(() { _imageFile = File(picked.path); });
-    }
-  }
-
   void _initEmptyControllers() {
     setState(() {
       _nameController = TextEditingController();
@@ -82,6 +92,32 @@ class _UserProfilePageState extends State<UserProfilePage> {
       _gender = null;
       _loading = false;
     });
+  }
+
+  Future<void> _pickImage() async {
+    final XFile? picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
+    if (picked != null) {
+      setState(() { _imageFile = File(picked.path); });
+    }
+  }
+
+  Future<void> _pickBirthDate() async {
+    final initialDate = _birthDate ?? DateTime(2000, 1, 1);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(primary: Colors.amber, onPrimary: Colors.black),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) setState(() => _birthDate = picked);
   }
 
   Future<void> _saveUserData() async {
@@ -95,12 +131,9 @@ class _UserProfilePageState extends State<UserProfilePage> {
       );
       
       final prefs = await SharedPreferences.getInstance();
-      
-      // Salva dati utente
       final jsonString = jsonEncode(user.toMap());
       await prefs.setString('user_data_$_currentUserEmail', jsonString);
       
-      // Salva percorso immagine
       if (_imageFile != null) {
         await prefs.setString('user_image_$_currentUserEmail', _imageFile!.path);
       }
@@ -112,66 +145,151 @@ class _UserProfilePageState extends State<UserProfilePage> {
     }
   }
 
-  // ... _pickBirthDate rimane uguale ...
-  Future<void> _pickBirthDate() async {
-    final initialDate = _birthDate ?? DateTime(2000, 1, 1);
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initialDate,
-      firstDate: DateTime(1900),
-      lastDate: DateTime.now(),
-    );
-    if (picked != null) setState(() => _birthDate = picked);
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator(color: Colors.amber)));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profilo utente')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+      appBar: AppBar(
+        title: const Text('Modifica Profilo', style: TextStyle(fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.black,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
         child: Form(
           key: _formKey,
-          child: ListView(
+          child: Column(
             children: [
-              // WIDGET FOTO PROFILO
+              // --- FOTO PROFILO ---
               Center(
                 child: GestureDetector(
                   onTap: _pickImage,
                   child: Stack(
                     children: [
-                      CircleAvatar(
-                        radius: 50,
-                        backgroundColor: Colors.grey[300],
-                        backgroundImage: _imageFile != null ? FileImage(_imageFile!) : null,
-                        child: _imageFile == null ? const Icon(Icons.camera_alt, size: 40) : null,
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.amber, width: 3),
+                        ),
+                        child: CircleAvatar(
+                          radius: 60,
+                          backgroundColor: Colors.grey[200],
+                          backgroundImage: _imageFile != null ? FileImage(_imageFile!) : null,
+                          child: _imageFile == null 
+                              ? const Icon(Icons.person, size: 60, color: Colors.grey) 
+                              : null,
+                        ),
                       ),
-                      if (_imageFile != null)
-                        const Positioned(bottom: 0, right: 0, child: CircleAvatar(radius: 15, backgroundColor: Colors.amber, child: Icon(Icons.edit, size: 15, color: Colors.black))),
+                      Positioned(
+                        bottom: 0,
+                        right: 4,
+                        child: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: Colors.amber,
+                          child: Icon(
+                            _imageFile == null ? Icons.add_a_photo : Icons.edit,
+                            size: 18,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
-              TextFormField(controller: _nameController, decoration: const InputDecoration(labelText: 'Nome')),
-              TextFormField(controller: _surnameController, decoration: const InputDecoration(labelText: 'Cognome')),
-              TextFormField(controller: _emailController, decoration: const InputDecoration(labelText: 'Email'), readOnly: true),
-              const SizedBox(height: 20),
-              ListTile(
-                title: Text(_birthDate == null ? 'Seleziona data di nascita' : 'Data: ${_birthDate!.day}/${_birthDate!.month}/${_birthDate!.year}'),
-                trailing: const Icon(Icons.calendar_today),
-                onTap: _pickBirthDate,
-              ),
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(labelText: 'Genere'),
-                value: _gender,
-                items: ['male', 'female', 'other'].map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
-                onChanged: (val) => setState(() => _gender = val),
-              ),
               const SizedBox(height: 30),
-              ElevatedButton(onPressed: _saveUserData, child: const Text('Salva')),
+
+              // --- CAMPI TESTO ---
+              TextFormField(
+                controller: _nameController, 
+                decoration: _pillInput('Nome', Icons.person_outline),
+                validator: (v) => v!.isEmpty ? 'Inserisci il nome' : null,
+              ),
+              const SizedBox(height: 15),
+
+              TextFormField(
+                controller: _surnameController, 
+                decoration: _pillInput('Cognome', Icons.person_outline),
+                validator: (v) => v!.isEmpty ? 'Inserisci il cognome' : null,
+              ),
+              const SizedBox(height: 15),
+
+              TextFormField(
+                controller: _emailController, 
+                decoration: _pillInput('Email (sola lettura)', Icons.email_outlined),
+                readOnly: true,
+              ),
+              const SizedBox(height: 15),
+
+              // --- DATA DI NASCITA ---
+              InkWell(
+                onTap: _pickBirthDate,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(color: Colors.grey),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.cake_outlined, color: Colors.grey),
+                      const SizedBox(width: 12),
+                      Text(
+                        _birthDate == null 
+                          ? 'Data di nascita' 
+                          : '${_birthDate!.day}/${_birthDate!.month}/${_birthDate!.year}',
+                        style: TextStyle(
+                          color: _birthDate == null ? Colors.grey[700] : Colors.black,
+                          fontSize: 16
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 15),
+
+              // --- GENERE ---
+              DropdownButtonFormField<String>(
+                value: _gender,
+                decoration: _pillInput('Genere', Icons.wc_outlined),
+                items: [
+                  {'val': 'male', 'label': 'Uomo'},
+                  {'val': 'female', 'label': 'Donna'},
+                  {'val': 'other', 'label': 'Altro'}
+                ].map((g) => DropdownMenuItem(
+                  value: g['val'], 
+                  child: Text(g['label']!)
+                )).toList(),
+                onChanged: (val) => setState(() => _gender = val),
+                validator: (v) => v == null ? 'Seleziona il genere' : null,
+              ),
+
+              const SizedBox(height: 40),
+
+              // --- TASTO SALVA ---
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton(
+                  onPressed: _saveUserData,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.amber,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                    elevation: 2,
+                  ),
+                  child: const Text(
+                    'SALVA PROFILO', 
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
             ],
           ),
         ),

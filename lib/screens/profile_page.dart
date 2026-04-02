@@ -1,8 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:provider/provider.dart';
-
 import 'user_profile_page.dart';
 import 'chat_page.dart';
 import '../models/user.dart';
@@ -40,9 +38,9 @@ class _ProfilePageState extends State<ProfilePage> {
     final prefs = await SharedPreferences.getInstance();
     final email = widget.profileUserEmail;
     final savedPath = prefs.getString('user_image_$email');
-  if (savedPath != null) {
-    setState(() { _profileImage = File(savedPath); });
-  }
+    if (savedPath != null) {
+      setState(() { _profileImage = File(savedPath); });
+    }
     final jsonString = prefs.getString('user_data_$email');
     if (jsonString == null) return;
     final Map<String, dynamic> map = jsonDecode(jsonString);
@@ -67,15 +65,17 @@ class _ProfilePageState extends State<ProfilePage> {
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confermi di voler uscire?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Sei sicuro?'),
+        content: const Text('Confermi di voler uscire dal tuo account?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annulla'),
+            child: const Text('Annulla', style: TextStyle(color: Colors.grey)),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Esci', style: TextStyle(color: Colors.red)),
+            child: const Text('Esci', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -91,41 +91,59 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildHeader() {
-  final String name = _user != null ? '${_user!.name} ${_user!.surname}' : widget.profileUserName;
-  final String email = _user != null ? _user!.email : widget.profileUserEmail;
+    final String name = _user != null ? '${_user!.name} ${_user!.surname}' : widget.profileUserName;
+    final String email = _user != null ? _user!.email : widget.profileUserEmail;
 
-  return Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: const Color(0xFFF3F3F3),
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: Row(
-      children: [
-        CircleAvatar(
-          radius: 24,
-          backgroundColor: Colors.grey[400],
-          backgroundImage: _profileImage != null ? FileImage(_profileImage!) : null,
-          child: _profileImage == null 
-              ? const Icon(Icons.person, color: Colors.black) 
-              : null,
-        ),
-        const SizedBox(width: 16),
-        // ... resto della Row uguale ...
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(name, style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold)),
-              Text(email, style: const TextStyle(color: Colors.black54, fontSize: 13)),
-            ],
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Row(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.amber, width: 2),
+            ),
+            child: CircleAvatar(
+              radius: 30,
+              backgroundColor: Colors.white,
+              backgroundImage: _profileImage != null ? FileImage(_profileImage!) : null,
+              child: _profileImage == null 
+                  ? const Icon(Icons.person, color: Colors.grey, size: 30) 
+                  : null,
+            ),
           ),
-        ),
-        const Icon(Icons.chevron_right, color: Colors.black45),
-      ],
-    ),
-  );
-}
+          const SizedBox(width: 15),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(email, style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+              ],
+            ),
+          ),
+          const Icon(Icons.verified_user, color: Colors.amber, size: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionCard(List<Widget> children) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(children: children),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isOwnProfile = widget.currentUserEmail == widget.profileUserEmail;
@@ -133,104 +151,86 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        title: const Text('Impostazioni', style: TextStyle(fontWeight: FontWeight.bold)),
+        centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text('Settings', style: TextStyle(color: Colors.black)),
-        centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           children: [
             _buildHeader(),
-            const SizedBox(height: 24),
-            const Text(
-              'Other settings',
-              style: TextStyle(color: Colors.black54, fontSize: 13),
+            const SizedBox(height: 30),
+            
+            const Padding(
+              padding: EdgeInsets.only(left: 10, bottom: 10),
+              child: Text('ACCOUNT', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
             ),
-            const SizedBox(height: 12),
+            
+            _buildSectionCard([
+              ListTile(
+                leading: const Icon(Icons.person_outline, color: Colors.black87),
+                title: const Text('Dati del profilo', style: TextStyle(fontWeight: FontWeight.w500)),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const UserProfilePage()),
+                  );
+                  if (result == true) _loadUser(); // Ricarica se salvato
+                },
+              ),
+              const Divider(height: 1, indent: 50),
+              SwitchListTile(
+                activeColor: Colors.amber,
+                secondary: const Icon(Icons.notifications_none_outlined, color: Colors.black87),
+                title: const Text('Notifiche push', style: TextStyle(fontWeight: FontWeight.w500)),
+                value: _notificationsEnabled,
+                onChanged: (val) {
+                  setState(() => _notificationsEnabled = val);
+                  _savePrefs();
+                },
+              ),
+            ]),
 
-            // Card impostazioni principali
-            Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3F3F3),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.person_outline, color: Colors.black54),
-                    title: const Text('Profile details', style: TextStyle(color: Colors.black)),
-                    subtitle: _user == null
-                        ? null
-                        : Text('${_user!.name} ${_user!.surname}',
-                            style: const TextStyle(color: Colors.black54)),
-                    trailing: const Icon(Icons.chevron_right, color: Colors.black45),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const UserProfilePage()),
-                      );
-                    },
-                  ),
-                  const Divider(height: 1, color: Colors.black12),
-                  SwitchListTile(
-                    activeColor: Colors.amber,
-                    value: _notificationsEnabled,
-                    onChanged: (val) {
-                      setState(() => _notificationsEnabled = val);
-                      _savePrefs();
-                    },
-                    secondary: const Icon(Icons.notifications_none, color: Colors.black54),
-                    title: const Text('Notifications', style: TextStyle(color: Colors.black)),
-                  ),
-                ],
-              ),
+            const SizedBox(height: 25),
+
+            const Padding(
+              padding: EdgeInsets.only(left: 10, bottom: 10),
+              child: Text('AZIONI', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
             ),
 
-            const SizedBox(height: 24),
-
-            // Card chat + logout
-            Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3F3F3),
-                borderRadius: BorderRadius.circular(16),
+            _buildSectionCard([
+              if (!isOwnProfile) ...[
+                ListTile(
+                  leading: const Icon(Icons.chat_bubble_outline, color: Colors.black87),
+                  title: const Text('Invia un messaggio'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChatPage(
+                          userEmail: widget.currentUserEmail,
+                          venueEmail: widget.profileUserEmail,
+                          venueName: widget.profileUserName,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 1, indent: 50),
+              ],
+              ListTile(
+                leading: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+                title: const Text('Logout', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                onTap: () async {
+                  final confirmed = await _showLogoutConfirmation(context);
+                  if (confirmed) await _logout(context);
+                },
               ),
-              child: Column(
-                children: [
-                  if (!isOwnProfile) ...[
-                    ListTile(
-                      leading: const Icon(Icons.message, color: Colors.black54),
-                      title: const Text('Chatta con questo utente', style: TextStyle(color: Colors.black)),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ChatPage(
-                              userEmail: widget.currentUserEmail,
-                              venueEmail: widget.profileUserEmail,
-                              venueName: widget.profileUserName,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    const Divider(height: 1, color: Colors.black12),
-                  ],
-                  ListTile(
-                    leading: const Icon(Icons.logout, color: Color(0xFFFF4A4A)),
-                    title: const Text('Log out', style: TextStyle(color: Color(0xFFFF4A4A))),
-                    onTap: () async {
-                      final confirmed = await _showLogoutConfirmation(context);
-                      if (confirmed) {
-                        await _logout(context);
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ),
+            ]),
           ],
         ),
       ),

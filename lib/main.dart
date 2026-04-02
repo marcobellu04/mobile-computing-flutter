@@ -15,6 +15,7 @@ import 'screens/home.dart';
 import 'screens/user_profile_page.dart';
 import 'screens/map_screen.dart';
 
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();

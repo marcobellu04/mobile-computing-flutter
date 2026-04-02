@@ -43,9 +43,36 @@ class _AddEventScreenState extends State<AddEventScreen> {
   int? _ageRestrictionValue;
 
   double? eventLat, eventLng;
-
   File? _imageFile;
   final ImagePicker _picker = ImagePicker();
+
+  // --- STILE A PILLOLA COERENTE ---
+  InputDecoration _pillInput(String label, IconData icon, {Widget? suffix}) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: Colors.grey),
+      suffixIcon: suffix,
+      filled: true,
+      fillColor: Colors.grey[50],
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(30),
+        borderSide: const BorderSide(color: Colors.grey, width: 1),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(30),
+        borderSide: const BorderSide(color: Colors.amber, width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(30),
+        borderSide: const BorderSide(color: Colors.red, width: 1),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(30),
+        borderSide: const BorderSide(color: Colors.red, width: 2),
+      ),
+    );
+  }
 
   Future<void> _pickImage() async {
     final XFile? picked = await _picker.pickImage(source: ImageSource.gallery);
@@ -55,12 +82,9 @@ class _AddEventScreenState extends State<AddEventScreen> {
   Future<void> _geocodeAddress() async {
     final raw = _addressController.text.trim();
     if (raw.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Inserisci indirizzo!')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Inserisci indirizzo!')));
       return;
     }
-
     try {
       final query = '$raw, Roma, Italia'; 
       final locations = await locationFromAddress(query);
@@ -71,21 +95,11 @@ class _AddEventScreenState extends State<AddEventScreen> {
           eventLng = loc.longitude;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '📍 Coordinate impostate: ${eventLat!.toStringAsFixed(4)}, ${eventLng!.toStringAsFixed(4)}',
-            ),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Indirizzo non trovato')),
+          SnackBar(content: Text('📍 Posizione localizzata sulla mappa!')),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Errore geocodifica: $e')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Errore localizzazione: $e')));
     }
   }
 
@@ -96,41 +110,32 @@ class _AddEventScreenState extends State<AddEventScreen> {
       initialDate: now,
       firstDate: now,
       lastDate: DateTime(now.year + 5),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(primary: Colors.amber, onPrimary: Colors.black),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null) setState(() => _selectedDate = picked);
   }
 
   void _saveEvent() {
-    // Validazione form e data
     if (!_formKey.currentState!.validate() || _selectedDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Compila i campi obbligatori e seleziona una data')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Compila i campi e scegli una data')));
       return;
     }
-
-    // Validazione specifica per l'età se attivata
-    if (_ageRestrictionType != AgeRestrictionType.none &&
-        (_ageRestrictionValue == null || _ageRestrictionValue! <= 0)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Inserisci un valore valido per l\'età')),
-      );
-      return;
-    }
-
+    
     final eventProvider = Provider.of<EventProvider>(context, listen: false);
-
     final newEvent = Event(
       id: const Uuid().v4(),
       name: _nameController.text.trim(),
-      description: _descriptionController.text.trim().isEmpty
-          ? null
-          : _descriptionController.text.trim(),
+      description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
       date: _selectedDate!,
       zone: _zoneController.text.trim().isEmpty ? null : _zoneController.text.trim(),
-      fullAddress: _addressController.text.trim().isEmpty
-          ? null
-          : _addressController.text.trim(),
+      fullAddress: _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
       ownerEmail: widget.ownerEmail,
       ownerName: widget.ownerName,
       ownerSurname: widget.ownerSurname,
@@ -148,9 +153,6 @@ class _AddEventScreenState extends State<AddEventScreen> {
 
     eventProvider.addEvent(newEvent);
     Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('✅ Evento "${_nameController.text}" creato!')),
-    );
   }
 
   @override
@@ -159,101 +161,110 @@ class _AddEventScreenState extends State<AddEventScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Aggiungi Evento'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
+        title: const Text('Crea Nuovo Evento', style: TextStyle(fontWeight: FontWeight.bold)),
+        centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Form(
           key: _formKey,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // --- SEZIONE IMMAGINE ---
+              // --- SEZIONE FOTO ---
               GestureDetector(
                 onTap: _pickImage,
                 child: Container(
-                  height: 200,
+                  height: 180,
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(16),
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(25),
                     border: Border.all(color: Colors.grey[300]!),
                   ),
                   child: _imageFile == null
-                      ? const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.add_photo_alternate, size: 50, color: Colors.grey),
-                              Text('Aggiungi foto evento', style: TextStyle(color: Colors.grey)),
-                            ],
-                          ),
+                      ? const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add_a_photo_outlined, size: 40, color: Colors.amber),
+                            Text('Aggiungi Foto Copertina', style: TextStyle(color: Colors.grey)),
+                          ],
                         )
                       : ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(25),
                           child: Image.file(_imageFile!, fit: BoxFit.cover),
                         ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 25),
 
-              // --- CAMPI TESTO ---
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Nome Evento *', border: OutlineInputBorder()),
-                validator: (v) => v?.trim().isEmpty ?? true ? 'Campo obbligatorio' : null,
+                decoration: _pillInput('Nome Evento *', Icons.local_activity_outlined),
+                validator: (v) => v?.trim().isEmpty ?? true ? 'Obbligatorio' : null,
               ),
               const SizedBox(height: 15),
+
               TextFormField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Descrizione', border: OutlineInputBorder()),
-                maxLines: 3,
+                maxLines: 2,
+                decoration: _pillInput('Descrizione', Icons.notes_rounded),
               ),
               const SizedBox(height: 15),
 
               // --- DATA ---
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(_selectedDate == null 
-                  ? 'Nessuna data selezionata' 
-                  : 'Data: ${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}'),
-                trailing: ElevatedButton(
-                  onPressed: _selectDate,
-                  child: const Text('Scegli Data'),
+              InkWell(
+                onTap: _selectDate,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(color: Colors.grey),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_today, color: Colors.grey),
+                      const SizedBox(width: 12),
+                      Text(
+                        _selectedDate == null 
+                          ? 'Scegli Data *' 
+                          : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
+                        style: TextStyle(color: _selectedDate == null ? Colors.grey[700] : Colors.black),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const Divider(),
+              const SizedBox(height: 15),
 
-              // --- POSIZIONE ---
+              // --- INDIRIZZO E LOCALIZZAZIONE ---
               TextFormField(
                 controller: _addressController,
-                decoration: InputDecoration(
-                  labelText: 'Indirizzo o Luogo (es. EUR, Roma)',
-                  border: const OutlineInputBorder(),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.location_searching),
+                decoration: _pillInput(
+                  'Indirizzo (es. Via del Corso)', 
+                  Icons.location_on_outlined,
+                  suffix: IconButton(
+                    icon: const Icon(Icons.gps_fixed, color: Colors.amber),
                     onPressed: _geocodeAddress,
                   ),
                 ),
                 onFieldSubmitted: (_) => _geocodeAddress(),
               ),
               const SizedBox(height: 15),
+
               TextFormField(
                 controller: _zoneController,
-                decoration: const InputDecoration(labelText: 'Zona (es. Roma Nord)', border: OutlineInputBorder()),
+                decoration: _pillInput('Zona (es. Roma Sud)', Icons.map_outlined),
               ),
               const SizedBox(height: 15),
 
-              // --- PARTECIPANTI E LISTE ---
+              // --- PARTECIPANTI E TIPO LISTA ---
               Row(
                 children: [
                   Expanded(
                     child: TextFormField(
                       initialValue: _maxParticipants.toString(),
-                      decoration: const InputDecoration(labelText: 'Max Partecipanti', border: OutlineInputBorder()),
+                      decoration: _pillInput('Max Persone', Icons.people_outline),
                       keyboardType: TextInputType.number,
                       onChanged: (v) => _maxParticipants = int.tryParse(v) ?? 10,
                     ),
@@ -262,7 +273,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
                   Expanded(
                     child: DropdownButtonFormField<ListType>(
                       value: _listType,
-                      decoration: const InputDecoration(labelText: 'Tipo lista', border: OutlineInputBorder()),
+                      decoration: _pillInput('Lista', Icons.list_alt),
                       items: const [
                         DropdownMenuItem(value: ListType.open, child: Text('Aperta')),
                         DropdownMenuItem(value: ListType.closed, child: Text('Chiusa')),
@@ -277,55 +288,39 @@ class _AddEventScreenState extends State<AddEventScreen> {
               // --- STRUTTURA ---
               DropdownButtonFormField<String>(
                 value: _selectedVenueId,
-                decoration: const InputDecoration(labelText: 'Collega a una tua struttura', border: OutlineInputBorder()),
+                isExpanded: true,
+                decoration: _pillInput('Collega Struttura', Icons.business_outlined),
                 items: venues.map((v) => DropdownMenuItem(value: v.id, child: Text(v.name))).toList(),
                 onChanged: (v) => setState(() => _selectedVenueId = v),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 15),
 
-              // --- SEZIONE ETÀ (DINAMICA) ---
-              const Text("Restrizioni Età", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 10),
+              // --- ETÀ ---
               DropdownButtonFormField<AgeRestrictionType>(
                 value: _ageRestrictionType,
-                decoration: const InputDecoration(border: OutlineInputBorder()),
+                decoration: _pillInput('Restrizioni Età', Icons.how_to_reg_outlined),
                 items: const [
-                  DropdownMenuItem(value: AgeRestrictionType.none, child: Text('Nessuna restrizione')),
-                  DropdownMenuItem(value: AgeRestrictionType.over, child: Text('Età minima (Over)')),
-                  DropdownMenuItem(value: AgeRestrictionType.under, child: Text('Età massima (Under)')),
+                  DropdownMenuItem(value: AgeRestrictionType.none, child: Text('Nessuna')),
+                  DropdownMenuItem(value: AgeRestrictionType.over, child: Text('Over (Minima)')),
+                  DropdownMenuItem(value: AgeRestrictionType.under, child: Text('Under (Massima)')),
                 ],
                 onChanged: (v) => setState(() {
                   _ageRestrictionType = v!;
                   if (_ageRestrictionType == AgeRestrictionType.none) _ageRestrictionValue = null;
                 }),
               ),
-              
-              // Campo che appare solo se serve inserire l'età
-              if (_ageRestrictionType != AgeRestrictionType.none)
-                Padding(
-                  padding: const EdgeInsets.only(top: 15),
-                  child: TextFormField(
-                    decoration: InputDecoration(
-                      labelText: _ageRestrictionType == AgeRestrictionType.over ? 'Età minima' : 'Età massima',
-                      hintText: 'Inserisci numero (es. 18)',
-                      border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(Icons.cake),
-                    ),
-                    keyboardType: TextInputType.number,
-                    onChanged: (v) => setState(() => _ageRestrictionValue = int.tryParse(v)),
-                    validator: (v) {
-                      if (_ageRestrictionType != AgeRestrictionType.none) {
-                        if (v == null || v.isEmpty) return 'Inserisci l\'età';
-                        if (int.tryParse(v) == null) return 'Inserisci un numero';
-                      }
-                      return null;
-                    },
-                  ),
+              if (_ageRestrictionType != AgeRestrictionType.none) ...[
+                const SizedBox(height: 15),
+                TextFormField(
+                  decoration: _pillInput('Inserisci Età', Icons.cake_outlined),
+                  keyboardType: TextInputType.number,
+                  onChanged: (v) => setState(() => _ageRestrictionValue = int.tryParse(v)),
                 ),
+              ],
 
-              const SizedBox(height: 40),
+              const SizedBox(height: 35),
 
-              // --- TASTO SALVA ---
+              // --- TASTO FINALE ---
               SizedBox(
                 width: double.infinity,
                 height: 55,
@@ -334,9 +329,9 @@ class _AddEventScreenState extends State<AddEventScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.amber,
                     foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                   ),
-                  child: const Text('CREA EVENTO', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  child: const Text('PUBBLICA ORA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 ),
               ),
               const SizedBox(height: 20),
