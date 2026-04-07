@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:my_first_app/screens/event_detail_page.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/event.dart';
 import '../providers/event_provider.dart';
-import 'event_detail_screen.dart';
+
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -103,7 +104,7 @@ class _MapScreenState extends State<MapScreen> {
             onTap: () async {
               await Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => EventDetailScreen(event: e)),
+                MaterialPageRoute(builder: (_) => EventDetailPage(event: e)),
               );
               _loadMe();
             },

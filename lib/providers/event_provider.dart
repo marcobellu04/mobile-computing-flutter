@@ -5,16 +5,13 @@ import '../models/event.dart';
 
 class EventProvider extends ChangeNotifier {
   List<Event> _events = [];
-
   List<Event> get events => _events;
 
   EventProvider() {
     loadEvents();
   }
 
-  // ─────────────────────────────
-  // LOAD / SAVE
-  // ─────────────────────────────
+  // --- CARICAMENTO E SALVATAGGIO ---
 
   Future<void> loadEvents() async {
     final prefs = await SharedPreferences.getInstance();
@@ -25,80 +22,40 @@ class EventProvider extends ChangeNotifier {
         _events = list.map((e) => Event.fromMap(e as Map<String, dynamic>)).toList();
         notifyListeners();
       } catch (e) {
-        print("Errore nel caricamento eventi: $e");
+        debugPrint("Errore caricamento eventi: $e");
       }
     }
   }
 
   Future<void> _saveEvents() async {
-    final prefs = await SharedPreferences.getInstance();
-    final list = _events.map((e) => e.toMap()).toList();
-    await prefs.setString('events', jsonEncode(list));
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = _events.map((e) => e.toMap()).toList();
+      await prefs.setString('events', jsonEncode(list));
+    } catch (e) {
+      debugPrint("Errore salvataggio eventi: $e");
+    }
   }
 
-  // ─────────────────────────────
-  // BASIC CRUD
-  // ─────────────────────────────
+  // --- AGGIUNTA NUOVO EVENTO (MANCAVA QUESTA!) ---
 
   void addEvent(Event event) {
     _events.add(event);
-    _saveEvents();
-    notifyListeners();
+    _saveEvents(); // Salva subito su SharedPreferences
+    notifyListeners(); // Notifica la UI per mostrare il nuovo evento
   }
 
-  void updateEvent(Event updatedEvent) {
-    final index = _events.indexWhere((e) => e.id == updatedEvent.id);
-    if (index != -1) {
-      // ✅ Verifica che l'evento aggiornato mantenga le coordinate
-      if (updatedEvent.lat == null || updatedEvent.lng == null) {
-        print("ALERT: Tentativo di aggiornamento evento con coordinate NULL");
-      }
-      _events[index] = updatedEvent;
-      _saveEvents();
-      notifyListeners();
-    }
-  }
-
-  void updateEventImage(String eventId, String newPath) {
-    final index = _events.indexWhere((e) => e.id == eventId);
-    if (index != -1) {
-      _events[index] = _events[index].copyWith(imagePath: newPath);
-      _saveEvents();
-      notifyListeners();
-    }
-  }
-
-  // ─────────────────────────────
-  // PARTECIPAZIONE (Con controlli log)
-  // ─────────────────────────────
+  // --- LOGICA PARTECIPAZIONE ---
 
   void joinEvent(String eventId, String email) {
     final index = _events.indexWhere((e) => e.id == eventId);
     if (index == -1) return;
-    
     final event = _events[index];
-   final updated = Event(
-    id: event.id,
-    name: event.name,
-    description: event.description,
-    date: event.date,
-    ownerEmail: event.ownerEmail,
-    ownerName: event.ownerName,
-    ownerSurname: event.ownerSurname,
-    maxParticipants: event.maxParticipants,
-    participants: [...event.participants, email], // Aggiungiamo solo questo
-    pendingRequests: event.pendingRequests,
-    listType: event.listType,
-    venueId: event.venueId,
-    fullAddress: event.fullAddress,
-    ageRestrictionType: event.ageRestrictionType,
-    ageRestrictionValue: event.ageRestrictionValue,
-    zone: event.zone,
-    lat: event.lat, // FORZATO
-    lng: event.lng, // FORZATO
-    imagePath: event.imagePath,
-  );
-    _events[index] = updated;
+    if (event.participants.contains(email)) return;
+
+    _events[index] = event.copyWith(
+      participants: [...event.participants, email],
+    );
     _saveEvents();
     notifyListeners();
   }
@@ -107,64 +64,41 @@ class EventProvider extends ChangeNotifier {
     final index = _events.indexWhere((e) => e.id == eventId);
     if (index == -1) return;
     final event = _events[index];
-    if (event.pendingRequests.contains(email)) return;
-    if (event.participants.contains(email)) return;
+    if (event.pendingRequests.contains(email) || event.participants.contains(email)) return;
 
-    final updated = event.copyWith(
+    _events[index] = event.copyWith(
       pendingRequests: [...event.pendingRequests, email],
     );
-    _events[index] = updated;
     _saveEvents();
     notifyListeners();
   }
 
-  void leaveEvent(String eventId, String email) {
+  void approveRequest(String eventId, String userEmail) {
     final index = _events.indexWhere((e) => e.id == eventId);
     if (index == -1) return;
     final event = _events[index];
-    if (!event.participants.contains(email)) return;
 
-    final updated = event.copyWith(
-      participants: event.participants.where((p) => p != email).toList(),
+    _events[index] = event.copyWith(
+      pendingRequests: event.pendingRequests.where((e) => e != userEmail).toList(),
+      participants: [...event.participants, userEmail],
     );
-    _events[index] = updated;
     _saveEvents();
     notifyListeners();
   }
 
-  void rejectRequest(String eventId, String email) {
+  void rejectRequest(String eventId, String userEmail) {
     final index = _events.indexWhere((e) => e.id == eventId);
     if (index == -1) return;
     final event = _events[index];
-    if (!event.pendingRequests.contains(email)) return;
 
-    final updated = event.copyWith(
-      pendingRequests: event.pendingRequests.where((p) => p != email).toList(),
+    _events[index] = event.copyWith(
+      pendingRequests: event.pendingRequests.where((e) => e != userEmail).toList(),
     );
-    _events[index] = updated;
     _saveEvents();
     notifyListeners();
   }
 
-  void approveRequest(String eventId, String email) {
-    final index = _events.indexWhere((e) => e.id == eventId);
-    if (index == -1) return;
-    final event = _events[index];
-    if (!event.pendingRequests.contains(email)) return;
-    if (event.participants.length >= event.maxParticipants) return;
-
-    final updated = event.copyWith(
-      pendingRequests: event.pendingRequests.where((p) => p != email).toList(),
-      participants: [...event.participants, email],
-    );
-    _events[index] = updated;
-    _saveEvents();
-    notifyListeners();
-  }
-
-  // ─────────────────────────────
-  // ELIMINAZIONE
-  // ─────────────────────────────
+  // --- CANCELLAZIONE ---
 
   void deleteEvent(String eventId) {
     _events.removeWhere((e) => e.id == eventId);
@@ -172,22 +106,27 @@ class EventProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-// --- NUOVI GETTER PER FILTRAGGIO PARTECIPAZIONI ---
-
+  // --- GETTERS PER FILTRI ---
+  
   List<Event> getUpcomingParticipations(String email) {
+    if (email.isEmpty) return [];
     final now = DateTime.now();
+    // Consideriamo oggi a mezzanotte per includere eventi che iniziano oggi
+    final today = DateTime(now.year, now.month, now.day);
+    
     return _events.where((e) => 
       e.participants.contains(email) && 
-      (e.date.isAfter(now) || e.date.isAtSameMomentAs(now))
+      (e.date.isAfter(today) || e.date.isAtSameMomentAs(today))
     ).toList();
   }
 
-  List<Event> getPastParticipations(String email) {
-    final now = DateTime.now();
-    return _events.where((e) => 
-      e.participants.contains(email) && 
-      e.date.isBefore(now)
-    ).toList();
+  // --- AGGIORNAMENTO EVENTO ESISTENTE ---
+  void updateEvent(Event updatedEvent) {
+    final index = _events.indexWhere((e) => e.id == updatedEvent.id);
+    if (index != -1) {
+      _events[index] = updatedEvent;
+      _saveEvents(); // Salva la lista aggiornata su SharedPreferences
+      notifyListeners(); // Notifica tutte le pagine del cambiamento
+    }
   }
-
 }

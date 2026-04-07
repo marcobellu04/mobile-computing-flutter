@@ -1,17 +1,22 @@
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:share_plus/share_plus.dart';
 
+// Import dei tuoi modelli e provider
 import '../models/event.dart';
+import '../models/venue.dart';
 import '../providers/event_provider.dart';
-import '../providers/message_provider.dart';
+import '../providers/likes_provider.dart';
+import '../providers/venue_provider.dart';
+import 'chat_page.dart';
+// ASSICURATI CHE IL PERCORSO QUI SOTTO SIA CORRETTO PER IL TUO PROGETTO
+import 'external_profile_screen.dart'; 
 
 class EventDetailPage extends StatefulWidget {
   final Event event;
-
   const EventDetailPage({super.key, required this.event});
 
   @override
@@ -30,530 +35,396 @@ class _EventDetailPageState extends State<EventDetailPage> {
 
   Future<void> _loadMeAndAge() async {
     final prefs = await SharedPreferences.getInstance();
-    final me = prefs.getString('currentUserEmail') ??
-        prefs.getString('userEmail') ??
-        prefs.getString('user_email') ??
-        prefs.getString('email') ??
-        'guest@local';
+    final me = prefs.getString('user_email') ?? 'guest@local';
     final age = prefs.getInt('userAge');
-
-    if (mounted) {
-      setState(() {
-        _me = me;
-        _myAge = age;
-      });
-    }
-
-    // opzionale: se usi MessageProvider per la chat
-    final msgProv =
-        Provider.of<MessageProvider>(context, listen: false);
-    msgProv.setCurrentUserEmail(_me);
+    if (mounted) setState(() { _me = me; _myAge = age; });
   }
 
-  Future<void> _saveAge(int age) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('userAge', age);
-    if (mounted) setState(() => _myAge = age);
-  }
-
-  Event _fresh(BuildContext context) {
-    final provider = context.read<EventProvider>();
-    return provider.events.firstWhere(
-      (e) => e.id == widget.event.id,
-      orElse: () => widget.event,
-    );
+  Event _getFreshEvent(BuildContext context) {
+    return context.watch<EventProvider>().events.firstWhere(
+          (e) => e.id == widget.event.id,
+          orElse: () => widget.event,
+        );
   }
 
   bool _isFull(Event e) => e.participants.length >= e.maxParticipants;
   bool _isIn(Event e) => e.participants.contains(_me);
   bool _hasRequested(Event e) => e.pendingRequests.contains(_me);
+  bool _isOwner(Event e) => _me.trim().toLowerCase() == e.ownerEmail.trim().toLowerCase();
 
-  bool _isOwner(Event e) =>
-      _me.trim().toLowerCase() == e.ownerEmail.trim().toLowerCase();
-
-  Event _copyWith({
-    required Event base,
-    List<String>? participants,
-    List<String>? pendingRequests,
-    String? fullAddress,
-  }) {
-    return Event(
-      id: base.id,
-      name: base.name,
-      description: base.description,
-      date: base.date,
-      ownerEmail: base.ownerEmail,
-      ownerName: base.ownerName,
-      ownerSurname: base.ownerSurname,
-      maxParticipants: base.maxParticipants,
-      participants: participants ?? base.participants,
-      pendingRequests: pendingRequests ?? base.pendingRequests,
-      listType: base.listType,
-      venueId: base.venueId,
-      fullAddress: fullAddress ?? base.fullAddress,
-      ageRestrictionType: base.ageRestrictionType,
-      ageRestrictionValue: base.ageRestrictionValue,
-      zone: base.zone,
-    );
-  }
-
-  void _snack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
-    );
-  }
-
-  // ---- AGE LOGIC ----
-
-  String _ageRuleLabel(Event e) {
-    if (e.ageRestrictionType == AgeRestrictionType.none) return 'Nessuna';
-    final v = e.ageRestrictionValue ?? 0;
-    if (e.ageRestrictionType == AgeRestrictionType.over) {
-      return 'Minimo $v+';
-    }
-    return 'Massimo $v';
-  }
+  void _snack(String msg) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 
   bool _passesAgeRestriction(Event e, int age) {
     if (e.ageRestrictionType == AgeRestrictionType.none) return true;
-    final v = e.ageRestrictionValue;
-    if (v == null) return true;
-
-    if (e.ageRestrictionType == AgeRestrictionType.over) return age >= v;
-    if (e.ageRestrictionType == AgeRestrictionType.under) return age <= v;
-    return true;
-  }
-
-  Future<bool> _ensureAgeAllowed(Event e) async {
-    if (_isOwner(e)) return true;
-    if (e.ageRestrictionType == AgeRestrictionType.none) return true;
-
-    if (_myAge == null) {
-      final entered = await _askAgeDialog();
-      if (entered == null) return false;
-      await _saveAge(entered);
-    }
-
-    final age = _myAge!;
-    final ok = _passesAgeRestriction(e, age);
-
-    if (!ok) {
-      final v = e.ageRestrictionValue ?? 0;
-      final msg = e.ageRestrictionType == AgeRestrictionType.over
-          ? 'Questo evento è ${v}+ (tu hai $age).'
-          : 'Questo evento è massimo $v (tu hai $age).';
-      _snack(msg);
-      return false;
-    }
-
+    if (e.ageRestrictionValue == null) return true;
+    if (e.ageRestrictionType == AgeRestrictionType.over) return age >= e.ageRestrictionValue!;
+    if (e.ageRestrictionType == AgeRestrictionType.under) return age <= e.ageRestrictionValue!;
     return true;
   }
 
   Future<int?> _askAgeDialog() async {
     final controller = TextEditingController();
-
     return showDialog<int>(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Inserisci la tua età'),
-          content: TextField(
-            controller: controller,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(hintText: 'Es. 18'),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Annulla'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final raw = controller.text.trim();
-                final age = int.tryParse(raw);
-                if (age == null || age < 1 || age > 120) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Inserisci un numero valido.'),
-                    ),
-                  );
-                  return;
-                }
-                Navigator.pop(ctx, age);
-              },
-              child: const Text('Salva'),
-            ),
-          ],
-        );
-      },
+      builder: (ctx) => AlertDialog(
+        title: const Text('Inserisci la tua età'),
+        content: TextField(controller: controller, keyboardType: TextInputType.number),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annulla')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, int.tryParse(controller.text)), child: const Text('Salva')),
+        ],
+      ),
     );
   }
 
-  // ---- ACTIONS ----
-
-  Future<void> _joinOrRequest() async {
+  Future<void> _handleJoinAction(Event current) async {
+    if (current.ageRestrictionType != AgeRestrictionType.none && _myAge == null) {
+      final age = await _askAgeDialog();
+      if (age == null) return;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('userAge', age);
+      setState(() => _myAge = age);
+    }
+    if (_myAge != null && !_passesAgeRestriction(current, _myAge!)) {
+      _snack("L'evento ha restrizioni di età che non rispetti.");
+      return;
+    }
     final provider = context.read<EventProvider>();
-    final current = _fresh(context);
-
-    final allowed = await _ensureAgeAllowed(current);
-    if (!allowed) return;
-
-    if (_isIn(current)) {
-      _snack('Sei già tra i partecipanti.');
-      return;
-    }
-
-    if (_isFull(current)) {
-      _snack('Evento pieno.');
-      return;
-    }
-
     if (current.listType == ListType.open) {
-      final updated = _copyWith(
-        base: current,
-        participants: [...current.participants, _me],
-      );
-      provider.updateEvent(updated);
-      _snack('Partecipazione confermata!');
-      setState(() {});
-      return;
+      provider.joinEvent(current.id, _me);
+      _snack('Iscrizione completata!');
+    } else {
+      provider.requestToJoin(current.id, _me);
+      _snack('Richiesta inviata!');
     }
-
-    if (_hasRequested(current)) {
-      _snack('Hai già inviato una richiesta.');
-      return;
-    }
-
-    final updated = _copyWith(
-      base: current,
-      pendingRequests: [...current.pendingRequests, _me],
-    );
-    provider.updateEvent(updated);
-    _snack('Richiesta inviata!');
-    setState(() {});
-  }
-
-  Future<void> _cancelRequest() async {
-    final provider = context.read<EventProvider>();
-    final current = _fresh(context);
-
-    if (!_hasRequested(current)) {
-      _snack('Nessuna richiesta da annullare.');
-      return;
-    }
-
-    final updated = _copyWith(
-      base: current,
-      pendingRequests:
-          current.pendingRequests.where((x) => x != _me).toList(),
-    );
-    provider.updateEvent(updated);
-    _snack('Richiesta annullata.');
-    setState(() {});
-  }
-
-  Future<void> _leaveEvent() async {
-    final provider = context.read<EventProvider>();
-    final current = _fresh(context);
-
-    if (!_isIn(current)) {
-      _snack('Non risulti tra i partecipanti.');
-      return;
-    }
-
-    final updated = _copyWith(
-      base: current,
-      participants:
-          current.participants.where((x) => x != _me).toList(),
-    );
-    provider.updateEvent(updated);
-    _snack('Sei uscito dall’evento.');
-    setState(() {});
-  }
-
-  // ---- PRIVACY + ADDRESS ----
-
-  bool _canSeeFullAddress(Event e) {
-    final hasAddress = (e.fullAddress ?? '').trim().isNotEmpty;
-    if (!hasAddress) return false;
-    return _isIn(e) || _isOwner(e);
-  }
-
-  Future<void> _copyAddress(String address) async {
-    await Clipboard.setData(ClipboardData(text: address));
-    _snack('Indirizzo copiato ✅');
   }
 
   Future<void> _openInGoogleMaps(String address) async {
-    final q = Uri.encodeComponent(address);
-    final uri =
-        Uri.parse('https://www.google.com/maps/search/?api=1&query=$q');
-
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    final url = 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}';
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     } else {
-      _snack('Impossibile aprire Google Maps.');
+      _snack('Impossibile aprire le mappe.');
     }
   }
 
-  // ---- SHARE EVENT ----
-
-  String _buildShareText(Event e) {
-    final dateStr =
-        '${e.date.day.toString().padLeft(2, "0")}/${e.date.month.toString().padLeft(2, "0")}/${e.date.year}';
-    final zone = (e.zone == null || e.zone!.trim().isEmpty)
-        ? 'Zona non indicata'
-        : e.zone!.trim();
-    final listStr =
-        e.listType == ListType.open ? 'Lista aperta' : 'Lista privata';
-    final ageStr =
-        e.ageRestrictionType == AgeRestrictionType.none ||
-                e.ageRestrictionValue == null
-            ? ''
-            : (e.ageRestrictionType == AgeRestrictionType.over
-                ? '\nEtà minima: ${e.ageRestrictionValue}+'
-                : '\nEtà massima: ${e.ageRestrictionValue}');
-
-    // indirizzo SOLO se visibile (privacy)
-    final address = (e.fullAddress ?? '').trim();
-    final addressStr =
-        (_canSeeFullAddress(e) && address.isNotEmpty)
-            ? '\nIndirizzo: $address'
-            : '';
-
-    final desc = (e.description ?? '').trim();
-    final descStr = desc.isEmpty ? '' : '\n\n$desc';
-
-    return '🎉 ${e.name}\n📅 $dateStr\n📍 $zone\n👥 ${e.participants.length}/${e.maxParticipants}\n🔒 $listStr$ageStr$addressStr$descStr';
+  Widget _buildInfoTile(IconData icon, String title, String subtitle) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
+          child: Icon(icon, color: Colors.amber, size: 22),
+        ),
+        const SizedBox(width: 15),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              const SizedBox(height: 2),
+              Text(subtitle, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
-  Future<void> _shareEvent(Event e) async {
-    final text = _buildShareText(e);
-    await Share.share(text, subject: e.name);
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 15),
+      child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final current = context.watch<EventProvider>().events.firstWhere(
-          (e) => e.id == widget.event.id,
-          orElse: () => widget.event,
-        );
+    final current = _getFreshEvent(context);
+    final likesProvider = context.watch<LikesProvider>();
+    final venueProvider = context.watch<VenueProvider>();
+    
+    final isOwner = _isOwner(current);
+    final inEvent = _isIn(current);
+    final requested = _hasRequested(current);
+    final full = _isFull(current);
+    final isLiked = likesProvider.isLiked(current.id);
 
-    final dateStr =
-        '${current.date.day.toString().padLeft(2, "0")}/${current.date.month.toString().padLeft(2, "0")}/${current.date.year}';
+    final dateStr = "${current.date.day}/${current.date.month}/${current.date.year}";
+    final canSeeAddress = inEvent || isOwner;
 
-    final zoneStr =
-        (current.zone == null || current.zone!.trim().isEmpty)
-            ? 'Zona non indicata'
-            : current.zone!.trim();
-
-    final listTypeStr = current.listType == ListType.open
-        ? 'Lista aperta'
-        : 'Lista privata';
-
-    final isFull = _isFull(current);
-    final alreadyIn = _isIn(current);
-    final alreadyRequested = _hasRequested(current);
-
-    String primaryLabel;
-    VoidCallback? primaryAction;
-
-    if (alreadyIn) {
-      primaryLabel = 'Esci';
-      primaryAction = _leaveEvent;
-    } else if (current.listType == ListType.open) {
-      primaryLabel = isFull ? 'Evento pieno' : 'Partecipa';
-      primaryAction = isFull ? null : _joinOrRequest;
-    } else {
-      if (alreadyRequested) {
-        primaryLabel = 'Annulla richiesta';
-        primaryAction = _cancelRequest;
-      } else {
-        primaryLabel = isFull ? 'Evento pieno' : 'Richiedi accesso';
-        primaryAction = isFull ? null : _joinOrRequest;
-      }
+    Venue? linkedVenue;
+    if (current.venueId != null) {
+      try { linkedVenue = venueProvider.venues.firstWhere((v) => v.id == current.venueId); } catch(_) {}
     }
 
-    final canSeeAddress = _canSeeFullAddress(current);
-    final address = (current.fullAddress ?? '').trim();
-    final ageRule = _ageRuleLabel(current);
-
     return Scaffold(
-      appBar: AppBar(
-        title: Text(current.name),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share),
-            tooltip: 'Condividi',
-            onPressed: () => _shareEvent(current),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      backgroundColor: Colors.white,
+      body: Stack(
         children: [
-          Text(
-            current.name,
-            style:
-                const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '$dateStr • $zoneStr',
-            style:
-                const TextStyle(fontSize: 14, color: Colors.white70),
-          ),
-          const SizedBox(height: 12),
-
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: current.listType == ListType.open
-                    ? Colors.green
-                    : Colors.red,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                listTypeStr,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Età
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Età',
-                  style: TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold),
+          SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Hero(
+                  tag: 'event-${current.id}',
+                  child: Container(
+                    height: MediaQuery.of(context).size.height * 0.45,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
+                    ),
+                    child: (current.imagePath != null && File(current.imagePath!).existsSync())
+                        ? ClipRRect(
+                            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
+                            child: Image.file(File(current.imagePath!), fit: BoxFit.cover),
+                          )
+                        : const Icon(Icons.image, size: 100, color: Colors.grey),
+                  ),
                 ),
-              ),
-              Text(
-                _myAge == null ? 'Non impostata' : 'La tua: $_myAge',
-                style: const TextStyle(
-                    fontSize: 12, color: Colors.white70),
-              ),
-              IconButton(
-                onPressed: () async {
-                  final entered = await _askAgeDialog();
-                  if (entered != null) {
-                    await _saveAge(entered);
-                    _snack('Età salvata ✅');
-                  }
-                },
-                icon: const Icon(Icons.edit),
-                tooltip: 'Imposta età',
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text('Regola: $ageRule',
-              style: const TextStyle(fontSize: 14)),
 
-          const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.all(25),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(current.name, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 15),
 
-          if ((current.description ?? '').trim().isNotEmpty) ...[
-            const Text(
-              'Descrizione',
-              style: TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              current.description!,
-              style:
-                  const TextStyle(fontSize: 14, height: 1.35),
-            ),
-            const SizedBox(height: 16),
-          ],
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: current.listType == ListType.open ? Colors.green[50] : Colors.red[50],
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          current.listType == ListType.open ? 'LISTA APERTA' : 'LISTA PRIVATA',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: current.listType == ListType.open ? Colors.green : Colors.red),
+                        ),
+                      ),
 
-          const Text(
-            'Partecipanti',
-            style:
-                TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '${current.participants.length}/${current.maxParticipants}${isFull ? " • Pieno" : ""}',
-            style: const TextStyle(fontSize: 14),
-          ),
+                      const SizedBox(height: 25),
 
-          const SizedBox(height: 16),
+                      _buildInfoTile(Icons.calendar_today_rounded, dateStr, "Data dell'evento"),
+                      const SizedBox(height: 20),
+                      GestureDetector(
+                        onTap: canSeeAddress && current.fullAddress != null ? () => _openInGoogleMaps(current.fullAddress!) : null,
+                        child: _buildInfoTile(
+                          Icons.location_on_rounded, 
+                          current.zone ?? "Zona n.d.", 
+                          canSeeAddress ? (current.fullAddress ?? "Indirizzo non presente") : "Visibile dopo iscrizione"
+                        ),
+                      ),
 
-          const Text(
-            'Organizzatore',
-            style:
-                TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 6),
-          Text(current.ownerEmail,
-              style: const TextStyle(fontSize: 14)),
+                      const Divider(height: 50),
 
-          const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _buildSectionTitle("Partecipanti"),
+                          Text(
+                            '${current.participants.length} / ${current.maxParticipants}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.amber, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                      if (current.participants.isEmpty)
+                        const Text("Nessuno si è ancora iscritto.", style: TextStyle(color: Colors.grey))
+                      else
+                        SizedBox(
+                          height: 45,
+                          child: Stack(
+                            children: [
+                              ...List.generate(
+                                current.participants.length > 5 ? 5 : current.participants.length,
+                                (index) {
+                                  final userEmail = current.participants[index];
+                                  return Positioned(
+                                    left: index * 28.0, 
+                                    child: GestureDetector(
+                                      onTap: isOwner 
+                                        ? () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) => ExternalProfileScreen(email: userEmail),
+                                              ),
+                                            );
+                                          }
+                                        : null, 
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          border: Border.all(color: Colors.white, width: 2.5),
+                                          boxShadow: [
+                                            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))
+                                          ],
+                                        ),
+                                        child: CircleAvatar(
+                                          radius: 18,
+                                          backgroundColor: Colors.amber[200],
+                                          child: Text(
+                                            userEmail[0].toUpperCase(),
+                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                              if (current.participants.length > 5)
+                                Positioned(
+                                  left: 5 * 28.0,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.white, width: 2.5),
+                                    ),
+                                    child: CircleAvatar(
+                                      radius: 18,
+                                      backgroundColor: Colors.grey[200],
+                                      child: Text(
+                                        "+${current.participants.length - 5}",
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
 
-          // Indirizzo + copy + maps
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Indirizzo',
-                  style: TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
-              if (canSeeAddress && address.isNotEmpty) ...[
-                IconButton(
-                  onPressed: () => _copyAddress(address),
-                  icon: const Icon(Icons.copy),
-                  tooltip: 'Copia indirizzo',
-                ),
-                IconButton(
-                  onPressed: () => _openInGoogleMaps(address),
-                  icon: const Icon(Icons.map_outlined),
-                  tooltip: 'Apri in Google Maps',
+                      _buildSectionTitle("Descrizione"),
+                      Text(current.description ?? "Nessuna descrizione fornita.", 
+                        style: const TextStyle(fontSize: 15, color: Colors.black87, height: 1.5)),
+
+                      // --- SEZIONE ORGANIZZATORE / STRUTTURA ---
+// --- SEZIONE ORGANIZZATORE (Cliccabile per vedere il profilo) ---
+_buildSectionTitle("Organizzatore"),
+GestureDetector(
+  onTap: () {
+    // Chiunque può cliccare per vedere il profilo dell'organizzatore
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ExternalProfileScreen(email: current.ownerEmail),
+      ),
+    );
+  },
+  child: ListTile(
+    contentPadding: EdgeInsets.zero,
+    leading: CircleAvatar(
+      backgroundColor: Colors.amber[100], 
+      child: Text(current.ownerName[0].toUpperCase(), 
+      style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold))
+    ),
+    title: Text(
+      "${current.ownerName} ${current.ownerSurname}",
+      style: const TextStyle(fontWeight: FontWeight.w600),
+    ),
+    subtitle: Text(current.ownerEmail),
+    // La chat appare solo se NON sono io l'organizzatore
+    trailing: !isOwner 
+      ? IconButton(
+          icon: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.amber),
+          onPressed: () {
+            // Impediamo al click della chat di attivare anche il click del profilo
+            Navigator.push(
+              context, 
+              MaterialPageRoute(
+                builder: (_) => ChatPage(
+                  userEmail: _me, 
+                  venueEmail: current.ownerEmail, 
+                  venueName: current.ownerName
+                )
+              )
+            );
+          },
+        )
+      : null,
+  ),
+),
+                      
+                      if (linkedVenue != null) ...[
+                        const SizedBox(height: 10),
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: linkedVenue.imagePath != null && File(linkedVenue.imagePath!).existsSync()
+                              ? ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.file(File(linkedVenue.imagePath!), width: 50, height: 50, fit: BoxFit.cover))
+                              : Container(width: 50, height: 50, decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.business, color: Colors.amber)),
+                          title: Text(linkedVenue.name),
+                          subtitle: Text(linkedVenue.address ?? "Struttura ospitante"),
+                        ),
+                      ],
+
+                      const SizedBox(height: 100),
+                    ],
+                  ),
                 ),
               ],
-            ],
-          ),
-          const SizedBox(height: 6),
-          if (canSeeAddress)
-            Text(
-              address.isEmpty ? 'Non disponibile' : address,
-              style: const TextStyle(fontSize: 14),
-            )
-          else
-            Text(
-              address.isEmpty
-                  ? 'Indirizzo non disponibile.'
-                  : 'Visibile solo dopo approvazione / partecipazione.',
-              style: const TextStyle(
-                  fontSize: 14, color: Colors.white70),
             ),
+          ),
 
-          const SizedBox(height: 16),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                      child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black, size: 20),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => likesProvider.toggleLike(_me, current.id),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                      child: Icon(isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded, color: isLiked ? Colors.red : Colors.black, size: 20),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
 
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: primaryAction,
-                  child: Text(primaryLabel),
+          if (!isOwner)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(25, 15, 25, 25),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -2))],
+                ),
+                child: SizedBox(
+                  height: 55,
+                  child: ElevatedButton(
+                    onPressed: (inEvent || requested || full) ? null : () => _handleJoinAction(current),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber,
+                      foregroundColor: Colors.black,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      disabledBackgroundColor: Colors.grey[300],
+                    ),
+                    child: Text(
+                      inEvent ? 'SEI GIÀ ISCRITTO' : (requested ? 'RICHIESTA INVIATA' : (full ? 'EVENTO PIENO' : 'PARTECIPA')),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
-              OutlinedButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Chiudi'),
-              ),
-            ],
-          ),
+            ),
         ],
       ),
     );
