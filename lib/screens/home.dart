@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'events_page.dart';
+import '../widgets/geo_event_logo.dart'; // Import corretto per il logo viola
 import 'profile_page.dart';
 import 'chat_list_page.dart';
 import 'add_event.dart';
@@ -62,7 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _openAddEventFromFab(BuildContext context) async {
     final choice = await showModalBottomSheet<String>(
       context: context,
-      backgroundColor: Colors.transparent, // Per vedere l'effetto arrotondato
+      backgroundColor: Colors.transparent, 
       builder: (context) {
         return Container(
           padding: const EdgeInsets.all(24),
@@ -83,7 +84,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 25),
               
-              // Tasto Aggiungi Evento (Stile Pillola Gialla)
               SizedBox(
                 width: double.infinity,
                 height: 55,
@@ -101,7 +101,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 12),
               
-              // Tasto Aggiungi Struttura (Stile Pillola Grigia)
               SizedBox(
                 width: double.infinity,
                 height: 55,
@@ -158,15 +157,20 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       extendBody: true,
       appBar: AppBar(
-        title: const Text('GeoEvent', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 22)),
-        centerTitle: false,
+        // Impostiamo centerTitle a false per spingere il contenuto a sinistra
+        centerTitle: false, 
         backgroundColor: Colors.white,
         elevation: 0,
+        
+        // Inseriamo il logo nel parametro 'title'
+        // fontSize 22 è perfetto per non essere troppo invadente nell'AppBar
+        title: const GeoEventLogo(fontSize: 22), 
+        
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8.0),
             child: IconButton(
-              icon: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.black, size: 28),
+              icon: const Icon(Icons.chat_bubble_outline_rounded, color: Color.fromARGB(255, 0, 0, 0), size: 28),
               onPressed: _navigateToChat,
             ),
           ),

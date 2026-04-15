@@ -36,6 +36,7 @@ class FilterProvider extends ChangeNotifier {
 
   // LOGICA DI FILTRAGGIO: Questa è la parte nuova che "pulisce" la lista
   List<Event> applyFilters(List<Event> allEvents) {
+    print("FILTRO ATTIVO: Tipo: $_ageFilterType, Valore: $_ageFilterValue");
     return allEvents.where((event) {
       // 1. Filtro per Zona
       if (_selectedZone != null && _selectedZone != "Tutte" && _selectedZone!.isNotEmpty) {
@@ -51,14 +52,24 @@ class FilterProvider extends ChangeNotifier {
         }
       }
 
-      // 3. Filtro per Età
-      if (_ageFilterType != AgeRestrictionType.none && _ageFilterValue != null) {
-        if (event.ageRestrictionType == AgeRestrictionType.over) {
-          if (_ageFilterValue! < (event.ageRestrictionValue ?? 0)) return false;
-        } else if (event.ageRestrictionType == AgeRestrictionType.under) {
-          if (_ageFilterValue! > (event.ageRestrictionValue ?? 99)) return false;
-        }
-      }
+  // 3. Filtro per Età
+if (_ageFilterType != AgeRestrictionType.none) {
+  // Se l'utente sta cercando un tipo di evento (es. Over) ma l'evento è di un altro tipo (es. Under o Nessuno)
+  if (event.ageRestrictionType != _ageFilterType) return false;
+
+  // Se l'utente ha inserito anche un valore numerico (es. 18)
+  if (_ageFilterValue != null) {
+    if (_ageFilterType == AgeRestrictionType.over) {
+      // Mostra solo eventi Over che siano ALMENO l'età cercata (o superiore)
+      // Esempio: Cerco Over 18 -> Vedo Over 18, Over 20...
+      if ((event.ageRestrictionValue ?? 0) < _ageFilterValue!) return false;
+    } 
+    else if (_ageFilterType == AgeRestrictionType.under) {
+      // Mostra solo eventi Under che non superino l'età cercata
+      if ((event.ageRestrictionValue ?? 99) > _ageFilterValue!) return false;
+    }
+  }
+}
 
       return true;
     }).toList();

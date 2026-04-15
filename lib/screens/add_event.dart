@@ -220,15 +220,15 @@ TextFormField(
 
 const SizedBox(height: 15),
 
-// --- NUOVO CAMPO ZONA AGGIUNTO QUI ---
+
 TextFormField(
   controller: _zoneController,
   decoration: _pillInput('Zona (es. Eur, Centro, Trastevere)', Icons.map_outlined),
   validator: (v) => v!.isEmpty ? 'Inserisci una zona per i filtri' : null,
 ),
-// -------------------------------------
+
 const SizedBox(height: 15),
-// ... prosegue con il resto (Tipo Lista, ecc.) ...
+
 
               Row(
                 children: [

@@ -142,16 +142,18 @@ if (_showFilterMenu && !widget.onlyFavorites)
         FilterAge(
           selectedAgeType: filters.ageFilterType ?? AgeRestrictionType.none,
           ageValue: filters.ageFilterValue,
-          onAgeTypeChanged: (type) {
-            if (type != null) {
-              filters.setAgeFilterType(type); // Nome corretto
-              _saveCurrentFilters(filters);
-            }
-          },
-          onAgeValueChanged: (val) {
-            filters.setAgeFilterValue(val); // Nome corretto
-            _saveCurrentFilters(filters);
-          },
+         onAgeTypeChanged: (type) {
+  if (type != null) {
+    filters.setAgeFilterType(type);
+    // IMPORTANTE: salva subito dopo il cambiamento
+    _saveCurrentFilters(filters); 
+  }
+},
+onAgeValueChanged: (val) {
+  filters.setAgeFilterValue(val);
+  // IMPORTANTE: salva subito dopo il cambiamento
+  _saveCurrentFilters(filters);
+},
         ),
       ],
     ),

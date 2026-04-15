@@ -212,7 +212,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
                         ),
                       ),
                       const Divider(height: 50),
-                      Row(
+                     Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           _buildSectionTitle("Partecipanti"),
@@ -222,6 +222,54 @@ class _EventDetailPageState extends State<EventDetailPage> {
                           ),
                         ],
                       ),
+                      
+                      // --- NUOVA SEZIONE: GESTIONE RICHIESTE (SOLO PER IL PROPRIETARIO) ---
+                      if (isOwner && current.listType == ListType.closed && current.pendingRequests.isNotEmpty) ...[
+                        Container(
+                          margin: const EdgeInsets.symmetric(vertical: 10),
+                          padding: const EdgeInsets.all(15),
+                          decoration: BoxDecoration(
+                            color: Colors.amber[50],
+                            borderRadius: BorderRadius.circular(15),
+                            border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(Icons.pending_actions, color: Colors.amber, size: 20),
+                                  SizedBox(width: 8),
+                                  Text("Richieste di partecipazione", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              ...current.pendingRequests.map((requestEmail) => ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: CircleAvatar(
+                                  radius: 15,
+                                  backgroundColor: Colors.amber[100],
+                                  child: Text(requestEmail[0].toUpperCase(), style: const TextStyle(fontSize: 12, color: Colors.amber)),
+                                ),
+                                title: Text(requestEmail, style: const TextStyle(fontSize: 14)),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.check_circle, color: Colors.green),
+                                      onPressed: () => context.read<EventProvider>().approveRequest(current.id, requestEmail),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.cancel, color: Colors.red),
+                                      onPressed: () => context.read<EventProvider>().rejectRequest(current.id, requestEmail),
+                                    ),
+                                  ],
+                                ),
+                              )),
+                            ],
+                          ),
+                        ),
+                      ],
                       if (current.participants.isEmpty)
                         const Text("Nessuno si è ancora iscritto.", style: TextStyle(color: Colors.grey))
                       else
