@@ -15,41 +15,51 @@ class FilterAge extends StatelessWidget {
     required this.onAgeValueChanged,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    return Row(
+ // In lib/widgets/filter_age.dart
+@override
+Widget build(BuildContext context) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    child: Row(
       children: [
         Expanded(
+          flex: 2,
           child: DropdownButtonFormField<AgeRestrictionType>(
             value: selectedAgeType,
-            decoration: const InputDecoration(labelText: 'Filtro età'),
+            decoration: InputDecoration(
+              isDense: true,
+              labelText: 'Filtro età',
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             items: AgeRestrictionType.values.map((type) {
               return DropdownMenuItem(
                 value: type,
                 child: Text(type == AgeRestrictionType.none
                     ? 'Nessun filtro'
-                    : type == AgeRestrictionType.under
-                        ? 'Under'
-                        : 'Over'),
+                    : type == AgeRestrictionType.under ? 'Under' : 'Over'),
               );
             }).toList(),
             onChanged: onAgeTypeChanged,
           ),
         ),
         const SizedBox(width: 12),
-        SizedBox(
-          width: 80,
+        Expanded(
+          flex: 1,
           child: TextFormField(
             initialValue: ageValue?.toString(),
-            decoration: const InputDecoration(labelText: 'Età'),
+            decoration: InputDecoration(
+              isDense: true,
+              labelText: 'Età',
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             keyboardType: TextInputType.number,
-            onChanged: (val) {
-              final number = int.tryParse(val);
-              onAgeValueChanged(number);
-            },
+            onChanged: (val) => onAgeValueChanged(int.tryParse(val)),
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 }

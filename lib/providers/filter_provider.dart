@@ -34,6 +34,44 @@ class FilterProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // LOGICA DI FILTRAGGIO: Questa è la parte nuova che "pulisce" la lista
+  List<Event> applyFilters(List<Event> allEvents) {
+    return allEvents.where((event) {
+      // 1. Filtro per Zona
+      if (_selectedZone != null && _selectedZone != "Tutte" && _selectedZone!.isNotEmpty) {
+        if (event.zone != _selectedZone) return false;
+      }
+
+      // 2. Filtro per Data (confronto solo giorno/mese/anno)
+      if (_dateFilter != null) {
+        if (event.date.year != _dateFilter!.year ||
+            event.date.month != _dateFilter!.month ||
+            event.date.day != _dateFilter!.day) {
+          return false;
+        }
+      }
+
+      // 3. Filtro per Età
+      if (_ageFilterType != AgeRestrictionType.none && _ageFilterValue != null) {
+        if (event.ageRestrictionType == AgeRestrictionType.over) {
+          if (_ageFilterValue! < (event.ageRestrictionValue ?? 0)) return false;
+        } else if (event.ageRestrictionType == AgeRestrictionType.under) {
+          if (_ageFilterValue! > (event.ageRestrictionValue ?? 99)) return false;
+        }
+      }
+
+      return true;
+    }).toList();
+  }
+
+  void clearAll() {
+    _selectedZone = null;
+    _ageFilterType = AgeRestrictionType.none;
+    _ageFilterValue = null;
+    _dateFilter = null;
+    notifyListeners();
+  }
+
   Map<String, dynamic> toMap() => {
         'zone': _selectedZone,
         'ageType': _ageFilterType?.index ?? 0,
@@ -50,14 +88,6 @@ class FilterProvider extends ChangeNotifier {
     } else {
       _dateFilter = null;
     }
-    notifyListeners();
-  }
-
-  void clearAll() {
-    _selectedZone = null;
-    _ageFilterType = AgeRestrictionType.none;
-    _ageFilterValue = null;
-    _dateFilter = null;
     notifyListeners();
   }
 }

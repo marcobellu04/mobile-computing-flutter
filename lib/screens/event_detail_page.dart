@@ -5,14 +5,12 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-// Import dei tuoi modelli e provider
 import '../models/event.dart';
 import '../models/venue.dart';
 import '../providers/event_provider.dart';
 import '../providers/likes_provider.dart';
 import '../providers/venue_provider.dart';
 import 'chat_page.dart';
-// ASSICURATI CHE IL PERCORSO QUI SOTTO SIA CORRETTO PER IL TUO PROGETTO
 import 'external_profile_screen.dart'; 
 
 class EventDetailPage extends StatefulWidget {
@@ -191,7 +189,6 @@ class _EventDetailPageState extends State<EventDetailPage> {
                     children: [
                       Text(current.name, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 15),
-
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
@@ -203,9 +200,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
                           style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: current.listType == ListType.open ? Colors.green : Colors.red),
                         ),
                       ),
-
                       const SizedBox(height: 25),
-
                       _buildInfoTile(Icons.calendar_today_rounded, dateStr, "Data dell'evento"),
                       const SizedBox(height: 20),
                       GestureDetector(
@@ -216,9 +211,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
                           canSeeAddress ? (current.fullAddress ?? "Indirizzo non presente") : "Visibile dopo iscrizione"
                         ),
                       ),
-
                       const Divider(height: 50),
-
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -257,9 +250,6 @@ class _EventDetailPageState extends State<EventDetailPage> {
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
                                           border: Border.all(color: Colors.white, width: 2.5),
-                                          boxShadow: [
-                                            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))
-                                          ],
                                         ),
                                         child: CircleAvatar(
                                           radius: 18,
@@ -274,78 +264,44 @@ class _EventDetailPageState extends State<EventDetailPage> {
                                   );
                                 },
                               ),
-                              if (current.participants.length > 5)
-                                Positioned(
-                                  left: 5 * 28.0,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: Colors.white, width: 2.5),
-                                    ),
-                                    child: CircleAvatar(
-                                      radius: 18,
-                                      backgroundColor: Colors.grey[200],
-                                      child: Text(
-                                        "+${current.participants.length - 5}",
-                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54),
-                                      ),
-                                    ),
-                                  ),
-                                ),
                             ],
                           ),
                         ),
-
                       _buildSectionTitle("Descrizione"),
                       Text(current.description ?? "Nessuna descrizione fornita.", 
                         style: const TextStyle(fontSize: 15, color: Colors.black87, height: 1.5)),
 
-                      // --- SEZIONE ORGANIZZATORE / STRUTTURA ---
-// --- SEZIONE ORGANIZZATORE (Cliccabile per vedere il profilo) ---
-_buildSectionTitle("Organizzatore"),
-GestureDetector(
-  onTap: () {
-    // Chiunque può cliccare per vedere il profilo dell'organizzatore
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ExternalProfileScreen(email: current.ownerEmail),
-      ),
-    );
-  },
-  child: ListTile(
-    contentPadding: EdgeInsets.zero,
-    leading: CircleAvatar(
-      backgroundColor: Colors.amber[100], 
-      child: Text(current.ownerName[0].toUpperCase(), 
-      style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold))
-    ),
-    title: Text(
-      "${current.ownerName} ${current.ownerSurname}",
-      style: const TextStyle(fontWeight: FontWeight.w600),
-    ),
-    subtitle: Text(current.ownerEmail),
-    // La chat appare solo se NON sono io l'organizzatore
-    trailing: !isOwner 
-      ? IconButton(
-          icon: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.amber),
-          onPressed: () {
-            // Impediamo al click della chat di attivare anche il click del profilo
-            Navigator.push(
-              context, 
-              MaterialPageRoute(
-                builder: (_) => ChatPage(
-                  userEmail: _me, 
-                  venueEmail: current.ownerEmail, 
-                  venueName: current.ownerName
-                )
-              )
-            );
-          },
-        )
-      : null,
-  ),
-),
+                      _buildSectionTitle("Organizzatore"),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => ExternalProfileScreen(email: current.ownerEmail)),
+                          );
+                        },
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.amber[100], 
+                            child: Text(current.ownerName[0].toUpperCase(), style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold))
+                          ),
+                          title: Text("${current.ownerName} ${current.ownerSurname}", style: const TextStyle(fontWeight: FontWeight.w600)),
+                          subtitle: Text(current.ownerEmail),
+                          trailing: !isOwner 
+                            ? IconButton(
+                                icon: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.amber),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context, 
+                                    MaterialPageRoute(
+                                      builder: (_) => ChatPage(userEmail: _me, venueEmail: current.ownerEmail, venueName: current.ownerName)
+                                    )
+                                  );
+                                },
+                              )
+                            : null,
+                        ),
+                      ),
                       
                       if (linkedVenue != null) ...[
                         const SizedBox(height: 10),
@@ -358,7 +314,6 @@ GestureDetector(
                           subtitle: Text(linkedVenue.address ?? "Struttura ospitante"),
                         ),
                       ],
-
                       const SizedBox(height: 100),
                     ],
                   ),
@@ -367,6 +322,7 @@ GestureDetector(
             ),
           ),
 
+          // BARRA SUPERIORE (BACK E LIKE)
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
@@ -381,14 +337,21 @@ GestureDetector(
                       child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black, size: 20),
                     ),
                   ),
-                  GestureDetector(
-                    onTap: () => likesProvider.toggleLike(_me, current.id),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                      child: Icon(isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded, color: isLiked ? Colors.red : Colors.black, size: 20),
+                  
+                  // IL CUORE APPARE SOLO SE NON SEI IL PROPRIETARIO
+                  if (!isOwner)
+                    GestureDetector(
+                      onTap: () => likesProvider.toggleLike(_me, current.id),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                        child: Icon(
+                          isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded, 
+                          color: isLiked ? Colors.red : Colors.black, 
+                          size: 20
+                        ),
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),

@@ -205,18 +205,30 @@ class _AddEventScreenState extends State<AddEventScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 15),
+              // ... campo Indirizzo esistente ...
+const SizedBox(height: 15),
 
-              TextFormField(
-                controller: _addressController,
-                decoration: _pillInput('Indirizzo', Icons.location_on, 
-                  suffix: IconButton(
-                    icon: const Icon(Icons.check_circle, color: Colors.amber),
-                    onPressed: _geocodeAddress,
-                  )
-                ),
-              ),
-              const SizedBox(height: 15),
+TextFormField(
+  controller: _addressController,
+  decoration: _pillInput('Indirizzo', Icons.location_on, 
+    suffix: IconButton(
+      icon: const Icon(Icons.check_circle, color: Colors.amber),
+      onPressed: _geocodeAddress,
+    )
+  ),
+),
+
+const SizedBox(height: 15),
+
+// --- NUOVO CAMPO ZONA AGGIUNTO QUI ---
+TextFormField(
+  controller: _zoneController,
+  decoration: _pillInput('Zona (es. Eur, Centro, Trastevere)', Icons.map_outlined),
+  validator: (v) => v!.isEmpty ? 'Inserisci una zona per i filtri' : null,
+),
+// -------------------------------------
+const SizedBox(height: 15),
+// ... prosegue con il resto (Tipo Lista, ecc.) ...
 
               Row(
                 children: [

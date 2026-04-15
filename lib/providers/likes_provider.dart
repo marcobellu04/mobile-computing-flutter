@@ -19,16 +19,23 @@ class LikesProvider extends ChangeNotifier {
     return likesFor(_currentUserEmail!).contains(eventId);
   }
 
-  Future<void> toggleLike(String userEmail, String eventId) async {
-    final set = _likesByUser.putIfAbsent(userEmail, () => <String>{});
-    if (set.contains(eventId)) {
-      set.remove(eventId);
-    } else {
-      set.add(eventId);
-    }
-    await _saveForUser(userEmail);
-    notifyListeners();
+  // In lib/providers/likes_provider.dart
+
+Future<void> toggleLike(String userEmail, String eventId, {String? ownerEmail}) async {
+  // Se l'utente che mette like è lo stesso che ha creato l'evento, esci subito
+  if (ownerEmail != null && userEmail.trim().toLowerCase() == ownerEmail.trim().toLowerCase()) {
+    return; 
   }
+
+  final set = _likesByUser.putIfAbsent(userEmail, () => <String>{});
+  if (set.contains(eventId)) {
+    set.remove(eventId);
+  } else {
+    set.add(eventId);
+  }
+  await _saveForUser(userEmail);
+  notifyListeners();
+}
 
   Future<void> loadForUser(String userEmail) async {
     _currentUserEmail = userEmail; // Memorizziamo l'utente attivo
