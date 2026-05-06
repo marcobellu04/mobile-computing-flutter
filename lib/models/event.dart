@@ -22,7 +22,7 @@ class Event {
   final String? zone;
   final double? lat; 
   final double? lng; 
-  final String? imagePath; // <--- AGGIUNTO
+  final List<String> imagePaths; // MODIFICATO: Ora è una lista
 
   Event({
     required this.id,
@@ -43,11 +43,10 @@ class Event {
     this.zone,
     this.lat,         
     this.lng,
-    this.imagePath, // <--- AGGIUNTO
+    this.imagePaths = const [], // MODIFICATO
   });
 
   factory Event.fromMap(Map<String, dynamic> map) {
-    // Gestione flessibile della data per SharedPreferences e Firestore
     DateTime parsedDate;
     if (map['date'] is Timestamp) {
       parsedDate = (map['date'] as Timestamp).toDate();
@@ -76,7 +75,7 @@ class Event {
       zone: map['zone'],
       lat: (map['lat'] as num?)?.toDouble(),
       lng: (map['lng'] as num?)?.toDouble(),
-      imagePath: map['imagePath'], // <--- AGGIUNTO
+      imagePaths: List<String>.from(map['imagePaths'] ?? []), // MODIFICATO
     );
   }
 
@@ -100,7 +99,7 @@ class Event {
       'zone': zone,
       'lat': lat,
       'lng': lng,
-      'imagePath': imagePath, // <--- AGGIUNTO
+      'imagePaths': imagePaths, // MODIFICATO
     };
   }
 
@@ -123,7 +122,7 @@ class Event {
     String? zone,
     double? lat,
     double? lng,
-    String? imagePath, // <--- AGGIUNTO
+    List<String>? imagePaths, // ORA COERENTE
   }) {
     return Event(
       id: id ?? this.id,
@@ -144,7 +143,7 @@ class Event {
       zone: zone ?? this.zone,
       lat: lat ?? this.lat,
       lng: lng ?? this.lng,
-      imagePath: imagePath ?? this.imagePath, // <--- AGGIUNTO
+      imagePaths: imagePaths ?? this.imagePaths, // ORA COERENTE
     );
   }
 }

@@ -7,11 +7,9 @@ import 'package:geocoding/geocoding.dart';
 
 // Modelli
 import '../models/event.dart';
-import '../models/venue.dart';
 
 // Provider
 import '../providers/event_provider.dart';
-import '../providers/venue_provider.dart';
 
 class AddEventScreen extends StatefulWidget {
   final String ownerEmail;
@@ -38,19 +36,17 @@ class _AddEventScreenState extends State<AddEventScreen> {
   final TextEditingController _addressController = TextEditingController();
 
   DateTime? _selectedDate;
-  int _maxParticipants = 10;
+  final int _maxParticipants = 10;
   
-  // Utilizziamo i tipi definiti nel modello Event
   ListType _listType = ListType.open;
   AgeRestrictionType _ageRestrictionType = AgeRestrictionType.none;
   int? _ageRestrictionValue;
 
-  String? _selectedVenueId;
   double? eventLat, eventLng;
-  File? _imageFile;
+  
+  List<File> _imageFiles = [];
   final ImagePicker _picker = ImagePicker();
 
-  // --- STILE INPUT ---
   InputDecoration _pillInput(String label, IconData icon, {Widget? suffix}) {
     return InputDecoration(
       labelText: label,
@@ -70,9 +66,13 @@ class _AddEventScreenState extends State<AddEventScreen> {
     );
   }
 
-  Future<void> _pickImage() async {
-    final XFile? picked = await _picker.pickImage(source: ImageSource.gallery);
-    if (picked != null) setState(() => _imageFile = File(picked.path));
+  Future<void> _pickImages() async {
+    final List<XFile> pickedList = await _picker.pickMultiImage();
+    if (pickedList.isNotEmpty) {
+      setState(() {
+        _imageFiles.addAll(pickedList.map((xfile) => File(xfile.path)).toList());
+      });
+    }
   }
 
   Future<void> _geocodeAddress() async {
@@ -133,10 +133,10 @@ class _AddEventScreenState extends State<AddEventScreen> {
       ageRestrictionValue: _ageRestrictionValue,
       participants: [],
       pendingRequests: [],
-      venueId: _selectedVenueId,
+      venueId: null, // Ora è sempre null poiché abbiamo rimosso la selezione
       lat: eventLat,
       lng: eventLng,
-      imagePath: _imageFile?.path,
+      imagePaths: _imageFiles.map((f) => f.path).toList(), 
     );
 
     context.read<EventProvider>().addEvent(newEvent);
@@ -145,9 +145,6 @@ class _AddEventScreenState extends State<AddEventScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Usiamo context.watch per reagire ai cambiamenti delle strutture
-    final venues = context.watch<VenueProvider>().venues;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Crea Evento', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -158,9 +155,9 @@ class _AddEventScreenState extends State<AddEventScreen> {
           key: _formKey,
           child: Column(
             children: [
-              // Foto
+              // Foto Multipla
               GestureDetector(
-                onTap: _pickImage,
+                onTap: _pickImages,
                 child: Container(
                   height: 160,
                   width: double.infinity,
@@ -168,11 +165,36 @@ class _AddEventScreenState extends State<AddEventScreen> {
                     color: Colors.grey[200],
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: _imageFile == null
-                      ? const Icon(Icons.camera_alt, size: 40, color: Colors.grey)
-                      : ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: Image.file(_imageFile!, fit: BoxFit.cover),
+                  child: _imageFiles.isEmpty
+                      ? const Icon(Icons.add_a_photo, size: 40, color: Colors.grey)
+                      : ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _imageFiles.length,
+                          itemBuilder: (context, index) {
+                            return Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Stack(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(15),
+                                    child: Image.file(_imageFiles[index], height: 140, width: 140, fit: BoxFit.cover),
+                                  ),
+                                  Positioned(
+                                    right: 0,
+                                    top: 0,
+                                    child: GestureDetector(
+                                      onTap: () => setState(() => _imageFiles.removeAt(index)),
+                                      child: const CircleAvatar(
+                                        radius: 12,
+                                        backgroundColor: Colors.red,
+                                        child: Icon(Icons.close, size: 15, color: Colors.white),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
                         ),
                 ),
               ),
@@ -182,6 +204,13 @@ class _AddEventScreenState extends State<AddEventScreen> {
                 controller: _nameController,
                 decoration: _pillInput('Nome Evento *', Icons.title),
                 validator: (v) => v!.isEmpty ? 'Inserisci un nome' : null,
+              ),
+              const SizedBox(height: 15),
+
+              TextFormField(
+                controller: _descriptionController,
+                maxLines: 3,
+                decoration: _pillInput('Descrizione', Icons.description),
               ),
               const SizedBox(height: 15),
 
@@ -205,45 +234,34 @@ class _AddEventScreenState extends State<AddEventScreen> {
                   ),
                 ),
               ),
-              // ... campo Indirizzo esistente ...
-const SizedBox(height: 15),
+              const SizedBox(height: 15),
 
-TextFormField(
-  controller: _addressController,
-  decoration: _pillInput('Indirizzo', Icons.location_on, 
-    suffix: IconButton(
-      icon: const Icon(Icons.check_circle, color: Colors.amber),
-      onPressed: _geocodeAddress,
-    )
-  ),
-),
+              TextFormField(
+                controller: _addressController,
+                decoration: _pillInput('Indirizzo', Icons.location_on, 
+                  suffix: IconButton(
+                    icon: const Icon(Icons.check_circle, color: Colors.amber),
+                    onPressed: _geocodeAddress,
+                  )
+                ),
+              ),
+              const SizedBox(height: 15),
 
-const SizedBox(height: 15),
+              TextFormField(
+                controller: _zoneController,
+                decoration: _pillInput('Zona (es. Eur, Centro, Trastevere)', Icons.map_outlined),
+                validator: (v) => v!.isEmpty ? 'Inserisci una zona per i filtri' : null,
+              ),
+              const SizedBox(height: 15),
 
-
-TextFormField(
-  controller: _zoneController,
-  decoration: _pillInput('Zona (es. Eur, Centro, Trastevere)', Icons.map_outlined),
-  validator: (v) => v!.isEmpty ? 'Inserisci una zona per i filtri' : null,
-),
-
-const SizedBox(height: 15),
-
-
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<ListType>(
-                      value: _listType,
-                      decoration: _pillInput('Tipo Lista', Icons.list),
-                      items: ListType.values.map((type) => DropdownMenuItem(
-                        value: type,
-                        child: Text(type == ListType.open ? 'Aperta' : 'Chiusa'),
-                      )).toList(),
-                      onChanged: (v) => setState(() => _listType = v!),
-                    ),
-                  ),
-                ],
+              DropdownButtonFormField<ListType>(
+                value: _listType,
+                decoration: _pillInput('Tipo Lista', Icons.list),
+                items: ListType.values.map((type) => DropdownMenuItem(
+                  value: type,
+                  child: Text(type == ListType.open ? 'Aperta' : 'Chiusa'),
+                )).toList(),
+                onChanged: (v) => setState(() => _listType = v!),
               ),
               const SizedBox(height: 15),
 
@@ -266,20 +284,6 @@ const SizedBox(height: 15),
                   onChanged: (v) => _ageRestrictionValue = int.tryParse(v),
                 ),
               ],
-              
-              const SizedBox(height: 15),
-              
-              // Collegamento Struttura
-              DropdownButtonFormField<String>(
-                hint: const Text("Collega una struttura (opzionale)"),
-                value: _selectedVenueId,
-                decoration: _pillInput('Struttura', Icons.business),
-                items: venues.map((v) => DropdownMenuItem(
-                  value: v.id,
-                  child: Text(v.name),
-                )).toList(),
-                onChanged: (v) => setState(() => _selectedVenueId = v),
-              ),
 
               const SizedBox(height: 30),
 

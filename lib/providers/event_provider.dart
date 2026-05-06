@@ -5,7 +5,16 @@ import '../models/event.dart';
 
 class EventProvider extends ChangeNotifier {
   List<Event> _events = [];
-  List<Event> get events => _events;
+
+  // MODIFICA: Restituisce solo eventi la cui data è oggi o nel futuro
+  List<Event> get events {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    
+    return _events.where((e) {
+      return e.date.isAfter(today) || e.date.isAtSameMomentAs(today);
+    }).toList();
+  }
 
   EventProvider() {
     loadEvents();
@@ -37,12 +46,12 @@ class EventProvider extends ChangeNotifier {
     }
   }
 
-  // --- AGGIUNTA NUOVO EVENTO (MANCAVA QUESTA!) ---
+  // --- AGGIUNTA NUOVO EVENTO ---
 
   void addEvent(Event event) {
     _events.add(event);
-    _saveEvents(); // Salva subito su SharedPreferences
-    notifyListeners(); // Notifica la UI per mostrare il nuovo evento
+    _saveEvents(); 
+    notifyListeners(); 
   }
 
   // --- LOGICA PARTECIPAZIONE ---
@@ -111,7 +120,6 @@ class EventProvider extends ChangeNotifier {
   List<Event> getUpcomingParticipations(String email) {
     if (email.isEmpty) return [];
     final now = DateTime.now();
-    // Consideriamo oggi a mezzanotte per includere eventi che iniziano oggi
     final today = DateTime(now.year, now.month, now.day);
     
     return _events.where((e) => 
@@ -125,8 +133,8 @@ class EventProvider extends ChangeNotifier {
     final index = _events.indexWhere((e) => e.id == updatedEvent.id);
     if (index != -1) {
       _events[index] = updatedEvent;
-      _saveEvents(); // Salva la lista aggiornata su SharedPreferences
-      notifyListeners(); // Notifica tutte le pagine del cambiamento
+      _saveEvents(); 
+      notifyListeners(); 
     }
   }
 }

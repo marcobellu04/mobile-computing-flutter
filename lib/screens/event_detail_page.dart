@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -51,6 +50,32 @@ class _EventDetailPageState extends State<EventDetailPage> {
   bool _isOwner(Event e) => _me.trim().toLowerCase() == e.ownerEmail.trim().toLowerCase();
 
   void _snack(String msg) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+
+  // --- LOGICA DI ELIMINAZIONE ---
+  void _confirmDelete(BuildContext context, EventProvider provider, String eventId) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Elimina Evento"),
+        content: const Text("Sei sicuro di voler eliminare definitivamente questo evento? L'azione non è reversibile."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Annulla", style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () {
+              provider.deleteEvent(eventId); // Assicurati che deleteEvent esista nel tuo Provider
+              Navigator.pop(ctx); // Chiude il dialog
+              Navigator.pop(context); // Torna alla home/profilo
+              _snack("Evento eliminato correttamente");
+            },
+            child: const Text("Elimina", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
 
   bool _passesAgeRestriction(Event e, int age) {
     if (e.ageRestrictionType == AgeRestrictionType.none) return true;
@@ -141,6 +166,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
     final current = _getFreshEvent(context);
     final likesProvider = context.watch<LikesProvider>();
     final venueProvider = context.watch<VenueProvider>();
+    final eventProvider = context.read<EventProvider>();
     
     final isOwner = _isOwner(current);
     final inEvent = _isIn(current);
@@ -164,6 +190,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // --- SEZIONE IMMAGINI (PAGEVIEW) ---
                 Hero(
                   tag: 'event-${current.id}',
                   child: Container(
@@ -173,10 +200,36 @@ class _EventDetailPageState extends State<EventDetailPage> {
                       color: Colors.grey[200],
                       borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
                     ),
-                    child: (current.imagePath != null && File(current.imagePath!).existsSync())
+                    child: (current.imagePaths != null && current.imagePaths!.isNotEmpty)
                         ? ClipRRect(
                             borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
-                            child: Image.file(File(current.imagePath!), fit: BoxFit.cover),
+                            child: Stack(
+                              children: [
+                                PageView.builder(
+                                  itemCount: current.imagePaths!.length,
+                                  itemBuilder: (context, index) {
+                                    final path = current.imagePaths![index];
+                                    return File(path).existsSync()
+                                        ? Image.file(File(path), fit: BoxFit.cover)
+                                        : const Icon(Icons.broken_image, size: 50);
+                                  },
+                                ),
+                                // Indicatore visivo per lo scroll (opzionale)
+                                if (current.imagePaths!.length > 1)
+                                  Positioned(
+                                    bottom: 20,
+                                    right: 20,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black54,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: const Icon(Icons.swipe_left, color: Colors.white, size: 16),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           )
                         : const Icon(Icons.image, size: 100, color: Colors.grey),
                   ),
@@ -212,7 +265,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
                         ),
                       ),
                       const Divider(height: 50),
-                     Row(
+                      Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           _buildSectionTitle("Partecipanti"),
@@ -223,7 +276,6 @@ class _EventDetailPageState extends State<EventDetailPage> {
                         ],
                       ),
                       
-                      // --- NUOVA SEZIONE: GESTIONE RICHIESTE (SOLO PER IL PROPRIETARIO) ---
                       if (isOwner && current.listType == ListType.closed && current.pendingRequests.isNotEmpty) ...[
                         Container(
                           margin: const EdgeInsets.symmetric(vertical: 10),
@@ -362,7 +414,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
                           subtitle: Text(linkedVenue.address ?? "Struttura ospitante"),
                         ),
                       ],
-                      const SizedBox(height: 100),
+                      const SizedBox(height: 120), // Spazio per i bottoni in fondo
                     ],
                   ),
                 ),
@@ -386,7 +438,6 @@ class _EventDetailPageState extends State<EventDetailPage> {
                     ),
                   ),
                   
-                  // IL CUORE APPARE SOLO SE NON SEI IL PROPRIETARIO
                   if (!isOwner)
                     GestureDetector(
                       onTap: () => likesProvider.toggleLike(_me, current.id),
@@ -405,37 +456,48 @@ class _EventDetailPageState extends State<EventDetailPage> {
             ),
           ),
 
-          if (!isOwner)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(25, 15, 25, 25),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -2))],
-                ),
-                child: SizedBox(
-                  height: 55,
-                  child: ElevatedButton(
-                    onPressed: (inEvent || requested || full) ? null : () => _handleJoinAction(current),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amber,
-                      foregroundColor: Colors.black,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                      disabledBackgroundColor: Colors.grey[300],
+          // --- TASTI AZIONE IN FONDO (ELIMINA SE PROPRIETARIO, PARTECIPA SE UTENTE) ---
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(25, 15, 25, 25),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -2))],
+              ),
+              child: SizedBox(
+                height: 55,
+                child: isOwner 
+                  ? ElevatedButton.icon(
+                      onPressed: () => _confirmDelete(context, eventProvider, current.id),
+                      icon: const Icon(Icons.delete_forever, color: Colors.white),
+                      label: const Text("ELIMINA EVENTO", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      ),
+                    )
+                  : ElevatedButton(
+                      onPressed: (inEvent || requested || full) ? null : () => _handleJoinAction(current),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.amber,
+                        foregroundColor: Colors.black,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                        disabledBackgroundColor: Colors.grey[300],
+                      ),
+                      child: Text(
+                        inEvent ? 'SEI GIÀ ISCRITTO' : (requested ? 'RICHIESTA INVIATA' : (full ? 'EVENTO PIENO' : 'PARTECIPA')),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
                     ),
-                    child: Text(
-                      inEvent ? 'SEI GIÀ ISCRITTO' : (requested ? 'RICHIESTA INVIATA' : (full ? 'EVENTO PIENO' : 'PARTECIPA')),
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                  ),
-                ),
               ),
             ),
+          ),
         ],
       ),
     );
