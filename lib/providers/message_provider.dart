@@ -14,6 +14,30 @@ class MessageProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // --- NUOVO: Conta i messaggi non letti ricevuti da un utente specifico ---
+  int getUnreadCount(String myEmail, String otherEmail) {
+    return _messages.where((m) =>
+      m.senderEmail == otherEmail && 
+      m.receiverEmail == myEmail && 
+      m.isRead == false
+    ).length;
+  }
+
+  // --- NUOVO: Segna come letti i messaggi quando apri la chat ---
+  void markAsRead(String myEmail, String otherEmail) {
+    bool changed = false;
+    for (var m in _messages) {
+      if (m.senderEmail == otherEmail && m.receiverEmail == myEmail && !m.isRead) {
+        m.isRead = true;
+        changed = true;
+      }
+    }
+    if (changed) {
+      saveMessages();
+      notifyListeners();
+    }
+  }
+
   List<Message> getMessagesBetween(String userEmail, String otherEmail) {
     return _messages.where((m) =>
       (m.senderEmail == userEmail && m.receiverEmail == otherEmail) ||

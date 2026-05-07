@@ -175,7 +175,7 @@ class _ZoomButton extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25), // Forma a pillola
-        boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
       ),
       child: IconButton(
         icon: Icon(icon, color: Colors.black),
@@ -193,12 +193,12 @@ class _Legend extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.9),
         borderRadius: BorderRadius.circular(20), // Forma a pillola/arrotondata
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
       ),
-      child: Column(
+      child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
-        children: const [
+        children: [
           _LegendItem(color: Colors.green, label: 'Aperto'),
           SizedBox(height: 6),
           _LegendItem(color: Colors.redAccent, label: 'Privato'),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../widgets/geo_event_logo.dart'; // Importa il widget del logo
-import 'home.dart'; // Importa la tua home
+// Importa la tua home
 
 // --- WIDGET SPLASH SCREEN CORRETTO ---
 class SplashScreen extends StatefulWidget {

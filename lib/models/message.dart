@@ -5,6 +5,7 @@ class Message {
   final DateTime timestamp;
   final String? senderName;
   final String? receiverName;
+  bool isRead; // 1. Aggiunto campo per lo stato di lettura
 
   Message({
     required this.senderEmail,
@@ -13,6 +14,7 @@ class Message {
     required this.timestamp,
     this.senderName,
     this.receiverName,
+    this.isRead = false, // 2. Default a false (nuovo messaggio = non letto)
   });
 
   factory Message.fromMap(Map<String, dynamic> map) {
@@ -21,8 +23,10 @@ class Message {
       receiverEmail: map['receiverEmail'] as String,
       text: map['text'] as String,
       timestamp: DateTime.parse(map['timestamp'] as String),
-      senderName: map['senderName'] as String?,       // nuovo campo opzionale
-      receiverName: map['receiverName'] as String?,   // nuovo campo opzionale
+      senderName: map['senderName'] as String?,
+      receiverName: map['receiverName'] as String?,
+      // 3. Recupero lo stato dal database/pref, se nullo metto false
+      isRead: map['isRead'] as bool? ?? false, 
     );
   }
 
@@ -34,6 +38,7 @@ class Message {
       'timestamp': timestamp.toIso8601String(),
       'senderName': senderName,
       'receiverName': receiverName,
+      'isRead': isRead, // 4. Salvo lo stato nel JSON
     };
   }
 }

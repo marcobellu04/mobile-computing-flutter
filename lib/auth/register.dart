@@ -126,90 +126,76 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   }
 
+// Funzione per validare l'email tramite Regex
+  bool _isValidEmail(String email) {
+    return RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
+  }
 
+  // Funzione per validare la password (minimo 6 caratteri)
+  bool _isValidPassword(String password) {
+    return password.length >= 6; 
+  }
 
   Future<void> _register() async {
-
     final name = _nameController.text.trim();
-
     final surname = _surnameController.text.trim();
-
     final email = _emailController.text.trim();
-
     final password = _passwordController.text;
 
-
-
+    // 1. Controllo campi vuoti
     if (name.isEmpty ||
-
         surname.isEmpty ||
-
         email.isEmpty ||
-
         password.isEmpty ||
-
         _birthDate == null ||
-
         _gender == null) {
-
       _showError('Compila tutti i campi');
-
       return;
-
     }
 
+    // 2. Controllo formato Email
+    if (!_isValidEmail(email)) {
+      _showError('Inserisci un indirizzo email valido');
+      return;
+    }
 
+    // 3. Controllo robustezza Password
+    if (!_isValidPassword(password)) {
+      _showError('La password deve contenere almeno 6 caratteri');
+      return;
+    }
 
     final users = await _getUsers();
-
-    if (users.any((u) => u['email'] == email)) {
-
-      _showError('Utente già registrato');
-
+    if (users.any((u) => u['email'].toLowerCase() == email.toLowerCase())) {
+      _showError('Utente già registrato con questa email');
       return;
-
     }
 
-
-
+    // Se passa tutti i controlli, procede al salvataggio
     users.add({
-
       'name': name,
-
       'surname': surname,
-
       'email': email,
-
       'password': password,
-
     });
-
+    
     await _saveUsers(users);
 
-
-
     await _saveProfile(
-
       email: email,
-
       name: name,
-
       surname: surname,
-
       birthDate: _birthDate!,
-
       gender: _gender!,
-
     );
 
-
-
     if (!mounted) return;
-
-    // Dopo la registrazione, torna al Login
-
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Registrazione completata! Accedi ora.')),
+    );
+    
     Navigator.pop(context);
-
   }
 
 
@@ -380,7 +366,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                 DropdownButtonFormField<String>(
 
-                  value: _gender,
+                  initialValue: _gender,
 
                   decoration: const InputDecoration(
 

@@ -3,60 +3,68 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LikesProvider extends ChangeNotifier {
-  // Mappa che associa l'email dell'utente al set dei suoi ID evento preferiti
   final Map<String, Set<String>> _likesByUser = {};
+  final Map<String, Set<String>> _venueLikesByUser = {}; // Nuova mappa per strutture
   
-  // Teniamo traccia dell'utente corrente per semplificare le chiamate dalla UI
   String? _currentUserEmail;
 
-  Set<String> likesFor(String userEmail) {
-    return _likesByUser[userEmail] ?? <String>{};
-  }
+  Set<String> likesFor(String userEmail) => _likesByUser[userEmail] ?? <String>{};
+  Set<String> venueLikesFor(String userEmail) => _venueLikesByUser[userEmail] ?? <String>{};
 
-  // MODIFICATO: Accetta l'ID evento e usa l'utente corrente internamente
   bool isLiked(String eventId) {
     if (_currentUserEmail == null) return false;
     return likesFor(_currentUserEmail!).contains(eventId);
   }
 
-  // In lib/providers/likes_provider.dart
-
-Future<void> toggleLike(String userEmail, String eventId, {String? ownerEmail}) async {
-  // Se l'utente che mette like è lo stesso che ha creato l'evento, esci subito
-  if (ownerEmail != null && userEmail.trim().toLowerCase() == ownerEmail.trim().toLowerCase()) {
-    return; 
+  bool isVenueLiked(String venueId) { // Nuovo check per strutture
+    if (_currentUserEmail == null) return false;
+    return venueLikesFor(_currentUserEmail!).contains(venueId);
   }
 
-  final set = _likesByUser.putIfAbsent(userEmail, () => <String>{});
-  if (set.contains(eventId)) {
-    set.remove(eventId);
-  } else {
-    set.add(eventId);
+  Future<void> toggleLike(String userEmail, String eventId, {String? ownerEmail}) async {
+    if (ownerEmail != null && userEmail.trim().toLowerCase() == ownerEmail.trim().toLowerCase()) return; 
+
+    final set = _likesByUser.putIfAbsent(userEmail, () => <String>{});
+    if (set.contains(eventId)) { set.remove(eventId); } else { set.add(eventId); }
+    await _saveForUser(userEmail, isVenue: false);
+    notifyListeners();
   }
-  await _saveForUser(userEmail);
-  notifyListeners();
-}
+
+  Future<void> toggleVenueLike(String userEmail, String venueId, {String? ownerEmail}) async {
+    if (ownerEmail != null && userEmail.trim().toLowerCase() == ownerEmail.trim().toLowerCase()) return;
+
+    final set = _venueLikesByUser.putIfAbsent(userEmail, () => <String>{});
+    if (set.contains(venueId)) { set.remove(venueId); } else { set.add(venueId); }
+    await _saveForUser(userEmail, isVenue: true);
+    notifyListeners();
+  }
 
   Future<void> loadForUser(String userEmail) async {
-    _currentUserEmail = userEmail; // Memorizziamo l'utente attivo
+    _currentUserEmail = userEmail;
     final prefs = await SharedPreferences.getInstance();
-    final key = 'likes_$userEmail';
-    final data = prefs.getString(key);
-    if (data != null) {
-      try {
-        final List list = jsonDecode(data) as List;
-        _likesByUser[userEmail] = list.map((e) => e as String).toSet();
-      } catch (e) {
-        _likesByUser[userEmail] = <String>{};
-      }
+    
+    // Carica Eventi
+    final eventData = prefs.getString('likes_$userEmail');
+    if (eventData != null) {
+      _likesByUser[userEmail] = (jsonDecode(eventData) as List).map((e) => e as String).toSet();
+    }
+    
+    // Carica Strutture
+    final venueData = prefs.getString('venue_likes_$userEmail');
+    if (venueData != null) {
+      _venueLikesByUser[userEmail] = (jsonDecode(venueData) as List).map((e) => e as String).toSet();
     }
     notifyListeners();
   }
 
-  Future<void> _saveForUser(String userEmail) async {
+  Future<void> _saveForUser(String userEmail, {required bool isVenue}) async {
     final prefs = await SharedPreferences.getInstance();
-    final key = 'likes_$userEmail';
-    final list = likesFor(userEmail).toList();
-    await prefs.setString(key, jsonEncode(list));
+    if (isVenue) {
+      final list = venueLikesFor(userEmail).toList();
+      await prefs.setString('venue_likes_$userEmail', jsonEncode(list));
+    } else {
+      final list = likesFor(userEmail).toList();
+      await prefs.setString('likes_$userEmail', jsonEncode(list));
+    }
   }
 }

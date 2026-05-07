@@ -36,6 +36,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
   final TextEditingController _addressController = TextEditingController();
 
   DateTime? _selectedDate;
+  TimeOfDay? _selectedTime; // AGGIUNTA ORA
   final int _maxParticipants = 10;
   
   ListType _listType = ListType.open;
@@ -44,7 +45,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
 
   double? eventLat, eventLng;
   
-  List<File> _imageFiles = [];
+  final List<File> _imageFiles = [];
   final ImagePicker _picker = ImagePicker();
 
   InputDecoration _pillInput(String label, IconData icon, {Widget? suffix}) {
@@ -102,26 +103,45 @@ class _AddEventScreenState extends State<AddEventScreen> {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: now,
+      initialDate: _selectedDate ?? now,
       firstDate: now,
       lastDate: DateTime(now.year + 5),
     );
     if (picked != null) setState(() => _selectedDate = picked);
   }
 
+  // AGGIUNTA FUNZIONE SELEZIONE ORA
+  void _selectTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime ?? TimeOfDay.now(),
+    );
+    if (picked != null) setState(() => _selectedTime = picked);
+  }
+
   void _saveEvent() {
-    if (!_formKey.currentState!.validate() || _selectedDate == null) {
+    // Validazione estesa a data e ora
+    if (!_formKey.currentState!.validate() || _selectedDate == null || _selectedTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Compila i campi obbligatori e la data')),
+        const SnackBar(content: Text('Compila i campi obbligatori, data e ora')),
       );
       return;
     }
+    
+    // Combina Data e Ora in un unico DateTime
+    final finalDateTime = DateTime(
+      _selectedDate!.year,
+      _selectedDate!.month,
+      _selectedDate!.day,
+      _selectedTime!.hour,
+      _selectedTime!.minute,
+    );
     
     final newEvent = Event(
       id: const Uuid().v4(),
       name: _nameController.text.trim(),
       description: _descriptionController.text.trim(),
-      date: _selectedDate!,
+      date: finalDateTime, // Usa il DateTime combinato
       zone: _zoneController.text.trim(),
       fullAddress: _addressController.text.trim(),
       ownerEmail: widget.ownerEmail,
@@ -133,7 +153,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
       ageRestrictionValue: _ageRestrictionValue,
       participants: [],
       pendingRequests: [],
-      venueId: null, // Ora è sempre null poiché abbiamo rimosso la selezione
+      venueId: null, 
       lat: eventLat,
       lng: eventLng,
       imagePaths: _imageFiles.map((f) => f.path).toList(), 
@@ -214,25 +234,53 @@ class _AddEventScreenState extends State<AddEventScreen> {
               ),
               const SizedBox(height: 15),
 
-              // Data Selector
-              InkWell(
-                onTap: _selectDate,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(30),
+              // RIGA DATA E ORA
+              Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: _selectDate,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey),
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
+                            const SizedBox(width: 10),
+                            Text(_selectedDate == null 
+                                ? 'Data *' 
+                                : '${_selectedDate!.day}/${_selectedDate!.month}'),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.calendar_today, color: Colors.grey),
-                      const SizedBox(width: 10),
-                      Text(_selectedDate == null 
-                          ? 'Data dell\'evento *' 
-                          : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}'),
-                    ],
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: InkWell(
+                      onTap: _selectTime,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey),
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.access_time, size: 18, color: Colors.grey),
+                            const SizedBox(width: 10),
+                            Text(_selectedTime == null 
+                                ? 'Ora *' 
+                                : _selectedTime!.format(context)),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
               const SizedBox(height: 15),
 
@@ -255,7 +303,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
               const SizedBox(height: 15),
 
               DropdownButtonFormField<ListType>(
-                value: _listType,
+                initialValue: _listType,
                 decoration: _pillInput('Tipo Lista', Icons.list),
                 items: ListType.values.map((type) => DropdownMenuItem(
                   value: type,
@@ -265,9 +313,8 @@ class _AddEventScreenState extends State<AddEventScreen> {
               ),
               const SizedBox(height: 15),
 
-              // Gestione Età
               DropdownButtonFormField<AgeRestrictionType>(
-                value: _ageRestrictionType,
+                initialValue: _ageRestrictionType,
                 decoration: _pillInput('Restrizione Età', Icons.person_search),
                 items: const [
                   DropdownMenuItem(value: AgeRestrictionType.none, child: Text('Nessuna')),

@@ -43,7 +43,7 @@ class User {
       'email': email,
       'name': name,
       'surname': surname,
-      'birthDate': birthDate?.toIso8601String(),
+      'birthDate': birthDate.toIso8601String(),
       'gender': gender,
     };
   }

@@ -67,7 +67,7 @@ class FilterAge extends StatelessWidget {
                   Expanded(
                     flex: 2,
                     child: DropdownButtonFormField<AgeRestrictionType>(
-                      value: selectedAgeType,
+                      initialValue: selectedAgeType,
                       decoration: InputDecoration(
                         labelText: "Tipo",
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),

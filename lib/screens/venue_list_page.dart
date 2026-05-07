@@ -2,7 +2,6 @@ import 'dart:io'; // NECESSARIO
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../models/venue.dart';
 import '../providers/venue_provider.dart';
 import 'chat_page.dart';
 

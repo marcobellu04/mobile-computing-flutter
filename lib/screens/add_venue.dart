@@ -74,19 +74,33 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
     }
   }
 
-  void _saveVenue() {
+void _saveVenue() {
+    // RegEx per validare il numero di telefono (accetta prefissi internazionali opzionali)
+    final RegExp phoneRegExp = RegExp(r'^(\+39|0039)?\s?[3]\d{2}\s?\d{6,7}$|^(\+39|0039)?\s?[0]\d{1,4}\s?\d{5,10}$');
+    final String phoneValue = phoneController.text.trim();
+
     if (nameController.text.isEmpty || addressController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("⚠️ Nome e Indirizzo obbligatori")));
+      return;
+    }
+
+    // NUOVA VALIDAZIONE TELEFONO
+    if (phoneValue.isNotEmpty && !phoneRegExp.hasMatch(phoneValue)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("⚠️ Inserisci un numero di telefono valido"))
+      );
       return;
     }
 
     final newVenue = Venue(
       id: const Uuid().v4(),
       name: nameController.text.trim(),
-      ownerEmail: widget.ownerEmail, // Colleghiamo la struttura all'utente
+      ownerEmail: widget.ownerEmail, 
+      ownerName: widget.ownerName,
+      ownerSurname: widget.ownerSurname,
       capacity: int.tryParse(capacityController.text),
       address: addressController.text.trim(),
-      phone: phoneController.text.trim(),
+      phone: phoneValue, // Usiamo il valore trimmato
       description: descriptionController.text.trim(),
       lat: _lat ?? 41.9028,
       lng: _lng ?? 12.4964,

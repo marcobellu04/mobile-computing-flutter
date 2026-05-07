@@ -4,15 +4,17 @@ import '../models/message.dart';
 import '../providers/message_provider.dart';
 
 class ChatPage extends StatefulWidget {
-  final String userEmail;    // Email utente loggato (mittente)
-  final String venueEmail;   // Email destinatario chat
-  final String venueName;    // Nome destinatario chat
+  final String userEmail;    
+  final String venueEmail;   
+  final String venueName;    
+  final String? role;        
 
   const ChatPage({
     super.key,
     required this.userEmail,
     required this.venueEmail,
     required this.venueName,
+    this.role,               
   });
 
   @override
@@ -21,6 +23,16 @@ class ChatPage extends StatefulWidget {
 
 class _ChatPageState extends State<ChatPage> {
   final TextEditingController _messageController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Segna i messaggi come letti appena si apre la pagina
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<MessageProvider>(context, listen: false)
+          .markAsRead(widget.userEmail, widget.venueEmail);
+    });
+  }
 
   void _sendMessage() {
     final text = _messageController.text.trim();
@@ -45,21 +57,44 @@ class _ChatPageState extends State<ChatPage> {
     final messageProvider = Provider.of<MessageProvider>(context);
     final messages = messageProvider.getMessagesBetween(widget.userEmail, widget.venueEmail);
 
+    // Se arrivano nuovi messaggi mentre la chat è aperta, segnali come letti
+    if (messageProvider.getUnreadCount(widget.userEmail, widget.venueEmail) > 0) {
+      Future.microtask(() => messageProvider.markAsRead(widget.userEmail, widget.venueEmail));
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         elevation: 0.5,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
+        titleSpacing: 0,
         title: Row(
           children: [
             CircleAvatar(
               backgroundColor: Colors.amber[100],
-              radius: 16,
-              child: Text(widget.venueName[0].toUpperCase(), style: const TextStyle(fontSize: 12, color: Colors.amber)),
+              radius: 18,
+              child: Text(
+                widget.venueName.isNotEmpty ? widget.venueName[0].toUpperCase() : "?", 
+                style: const TextStyle(fontSize: 14, color: Colors.amber, fontWeight: FontWeight.bold)
+              ),
             ),
-            const SizedBox(width: 10),
-            Text(widget.venueName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  widget.venueName, 
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
+                ),
+                if (widget.role != null)
+                  Text(
+                    widget.role!,
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+              ],
+            ),
           ],
         ),
       ),
@@ -97,7 +132,6 @@ class _ChatPageState extends State<ChatPage> {
               },
             ),
           ),
-          // Barra di input stile Instagram
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Colors.grey[200]!))),

@@ -5,9 +5,12 @@ import 'user_profile_page.dart';
 import 'chat_page.dart';
 import '../models/user.dart';
 import '../models/event.dart';
+import '../models/venue.dart'; 
 import '../providers/event_provider.dart';
+import '../providers/venue_provider.dart'; 
 import 'package:provider/provider.dart';
 import 'event_detail_page.dart';
+import 'venue_detail_screen.dart'; 
 import 'dart:io';
 
 class ProfilePage extends StatefulWidget {
@@ -94,7 +97,6 @@ class _ProfilePageState extends State<ProfilePage> {
     Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
   }
 
-  // Mostra l'elenco degli eventi creati in un menu dal basso
   void _showCreatedEventsList(BuildContext context, List<Event> events) {
     showModalBottomSheet(
       context: context,
@@ -107,7 +109,7 @@ class _ProfilePageState extends State<ProfilePage> {
           children: [
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10))),
             const SizedBox(height: 20),
-            const Text('I MIEI EVENTI CREATI', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('I MIEI EVENTI', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
             Expanded(
               child: ListView.separated(
@@ -115,14 +117,87 @@ class _ProfilePageState extends State<ProfilePage> {
                 separatorBuilder: (ctx, i) => const Divider(),
                 itemBuilder: (ctx, i) {
                   final e = events[i];
+                  // MODIFICA: Controllo se questo specifico evento ha richieste pendenti
+                  final hasRequests = e.pendingRequests.isNotEmpty;
+
                   return ListTile(
-                    leading: const Icon(Icons.event, color: Colors.amber),
+                    leading: Stack(
+                      children: [
+                        const Icon(Icons.event, color: Colors.amber),
+                        if (hasRequests)
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: Container(
+                              width: 9,
+                              height: 9,
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 1.5),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                     title: Text(e.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                     subtitle: Text("${e.date.day}/${e.date.month}/${e.date.year}"),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (hasRequests)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8.0),
+                            child: Text(
+                              '${e.pendingRequests.length} nuove',
+                              style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        const Icon(Icons.chevron_right, size: 20),
+                      ],
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailPage(event: e)));
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCreatedVenuesList(BuildContext context, List<Venue> venues) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10))),
+            const SizedBox(height: 20),
+            const Text('LE MIE STRUTTURE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 15),
+            Expanded(
+              child: ListView.separated(
+                itemCount: venues.length,
+                separatorBuilder: (ctx, i) => const Divider(),
+                itemBuilder: (ctx, i) {
+                  final v = venues[i];
+                  return ListTile(
+                    leading: const Icon(Icons.business, color: Colors.amber),
+                    title: Text(v.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(v.address ?? "Indirizzo non disponibile"),
                     trailing: const Icon(Icons.chevron_right, size: 20),
                     onTap: () {
-                      Navigator.pop(context); // Chiude il menu
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailPage(event: e)));
+                      Navigator.pop(context);
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => VenueDetailScreen(venue: v)));
                     },
                   );
                 },
@@ -191,9 +266,15 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     final bool isOwnProfile = widget.currentUserEmail == widget.profileUserEmail;
+    
     final eventProvider = context.watch<EventProvider>();
     final myCreatedEvents = eventProvider.events
         .where((e) => e.ownerEmail == widget.profileUserEmail)
+        .toList();
+
+    final venueProvider = context.watch<VenueProvider>();
+    final myCreatedVenues = venueProvider.venues
+        .where((v) => v.ownerEmail == widget.profileUserEmail)
         .toList();
 
     return Scaffold(
@@ -230,13 +311,23 @@ class _ProfilePageState extends State<ProfilePage> {
                 },
               ),
               const Divider(height: 1, indent: 50),
-              // --- NUOVO TASTO EVENTI CREATI ---
               ListTile(
                 leading: const Icon(Icons.auto_awesome_motion_outlined, color: Colors.black87),
-                title: const Text('Eventi creati da me', style: TextStyle(fontWeight: FontWeight.w500)),
+                title: const Text('I miei eventi', style: TextStyle(fontWeight: FontWeight.w500)),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // MODIFICA: Badge rosso per notifiche richieste pendenti
+                    if (eventProvider.countPendingRequestsForOwner(widget.profileUserEmail) > 0)
+                      Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.all(6),
+                        decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                        child: Text(
+                          '${eventProvider.countPendingRequestsForOwner(widget.profileUserEmail)}',
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ),
                     if (myCreatedEvents.isNotEmpty)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -249,8 +340,26 @@ class _ProfilePageState extends State<ProfilePage> {
                 onTap: () => _showCreatedEventsList(context, myCreatedEvents),
               ),
               const Divider(height: 1, indent: 50),
+              ListTile(
+                leading: const Icon(Icons.business_outlined, color: Colors.black87),
+                title: const Text('Le mie strutture', style: TextStyle(fontWeight: FontWeight.w500)),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (myCreatedVenues.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(color: Colors.amber[100], borderRadius: BorderRadius.circular(10)),
+                        child: Text('${myCreatedVenues.length}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber)),
+                      ),
+                    const Icon(Icons.chevron_right),
+                  ],
+                ),
+                onTap: () => _showCreatedVenuesList(context, myCreatedVenues),
+              ),
+              const Divider(height: 1, indent: 50),
               SwitchListTile(
-                activeColor: Colors.amber,
+                activeThumbColor: Colors.amber,
                 secondary: const Icon(Icons.notifications_none_outlined, color: Colors.black87),
                 title: const Text('Notifiche push', style: TextStyle(fontWeight: FontWeight.w500)),
                 value: _notificationsEnabled,

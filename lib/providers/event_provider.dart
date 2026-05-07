@@ -137,4 +137,24 @@ class EventProvider extends ChangeNotifier {
       notifyListeners(); 
     }
   }
+
+  // --- LOGICA NOTIFICHE ---
+
+  /// Restituisce il numero totale di richieste pendenti per tutti gli eventi di un utente
+  int getTotalPendingRequestsForOwner(String ownerEmail) {
+    return _events
+        .where((e) => e.ownerEmail.trim().toLowerCase() == ownerEmail.trim().toLowerCase())
+        .fold(0, (sum, event) => sum + event.pendingRequests.length);
+  }
+
+  /// Restituisce true se c'è almeno una richiesta pendente per quell'organizzatore
+  bool hasNotifications(String ownerEmail) {
+    return getTotalPendingRequestsForOwner(ownerEmail) > 0;
+  }
+
+  int countPendingRequestsForOwner(String ownerEmail) {
+  return _events
+      .where((e) => e.ownerEmail.trim().toLowerCase() == ownerEmail.trim().toLowerCase())
+      .fold(0, (sum, event) => sum + event.pendingRequests.length);
+}
 }

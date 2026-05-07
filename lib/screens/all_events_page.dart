@@ -183,8 +183,8 @@ class _AllEventsPageState extends State<AllEventsPage> {
  Widget _buildEventCard(Event event) {
     // Estraiamo la prima immagine valida dalla lista se presente
     String? firstImagePath;
-    if (event.imagePaths != null && event.imagePaths!.isNotEmpty) {
-      firstImagePath = event.imagePaths!.first;
+    if (event.imagePaths.isNotEmpty) {
+      firstImagePath = event.imagePaths.first;
     }
 
     return Card(

@@ -200,22 +200,22 @@ class _EventDetailPageState extends State<EventDetailPage> {
                       color: Colors.grey[200],
                       borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
                     ),
-                    child: (current.imagePaths != null && current.imagePaths!.isNotEmpty)
+                    child: (current.imagePaths.isNotEmpty)
                         ? ClipRRect(
                             borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
                             child: Stack(
                               children: [
                                 PageView.builder(
-                                  itemCount: current.imagePaths!.length,
+                                  itemCount: current.imagePaths.length,
                                   itemBuilder: (context, index) {
-                                    final path = current.imagePaths![index];
+                                    final path = current.imagePaths[index];
                                     return File(path).existsSync()
                                         ? Image.file(File(path), fit: BoxFit.cover)
                                         : const Icon(Icons.broken_image, size: 50);
                                   },
                                 ),
                                 // Indicatore visivo per lo scroll (opzionale)
-                                if (current.imagePaths!.length > 1)
+                                if (current.imagePaths.length > 1)
                                   Positioned(
                                     bottom: 20,
                                     right: 20,

@@ -4,12 +4,13 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'events_page.dart';
-import '../widgets/geo_event_logo.dart'; // Import corretto per il logo viola
+import '../widgets/geo_event_logo.dart'; 
 import 'profile_page.dart';
 import 'chat_list_page.dart';
 import 'add_event.dart';
 import 'add_venue.dart';
 import '../providers/likes_provider.dart';
+import '../providers/message_provider.dart'; // Importato per le notifiche
 import 'map_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -59,7 +60,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- RESTYLING DEL DIALOG IN "BOTTOM SHEET" A PILLOLA ---
   Future<void> _openAddEventFromFab(BuildContext context) async {
     final choice = await showModalBottomSheet<String>(
       context: context,
@@ -154,26 +154,62 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // CALCOLO NOTIFICHE TOTALI
+    final messageProvider = context.watch<MessageProvider>();
+    final summaries = messageProvider.getChatSummariesForUser(widget.currentUserEmail);
+    int totalUnread = 0;
+    for (var s in summaries) {
+      totalUnread += messageProvider.getUnreadCount(widget.currentUserEmail, s.userEmail);
+    }
+
     return Scaffold(
       extendBody: true,
       appBar: AppBar(
-        // Impostiamo centerTitle a false per spingere il contenuto a sinistra
         centerTitle: false, 
         backgroundColor: Colors.white,
         elevation: 0,
-        
-        // Inseriamo il logo nel parametro 'title'
-        // fontSize 22 è perfetto per non essere troppo invadente nell'AppBar
         title: const GeoEventLogo(fontSize: 22), 
-        
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: IconButton(
-              icon: const Icon(Icons.chat_bubble_outline_rounded, color: Color.fromARGB(255, 0, 0, 0), size: 28),
-              onPressed: _navigateToChat,
+          // MODIFICA: L'icona della chat appare solo nella tab Home (_selectedIndex == 0)
+          if (_selectedIndex == 0)
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.black, size: 28),
+                    onPressed: _navigateToChat,
+                  ),
+                  if (totalUnread > 0)
+                    Positioned(
+                      right: 6,
+                      top: 6,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 18,
+                          minHeight: 18,
+                        ),
+                        child: Text(
+                          '$totalUnread',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
         ],
       ),
       body: IndexedStack(

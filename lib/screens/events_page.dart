@@ -27,7 +27,8 @@ class _EventsPageState extends State<EventsPage> {
   User? currentUser;
   String _currentEmail = '';
   String searchQuery = '';
-  int _selectedTab = 0;
+  int _selectedTab = 0; // 0: Preferiti, 1: Partecipazioni
+  int _favoriteType = 0; // 0: Eventi, 1: Strutture (Sottolivello)
 
   @override
   void initState() {
@@ -55,22 +56,35 @@ class _EventsPageState extends State<EventsPage> {
   @override
   Widget build(BuildContext context) {
     final eventProvider = Provider.of<EventProvider>(context);
-    final venues = Provider.of<VenueProvider>(context).venues;
+    final venueProvider = Provider.of<VenueProvider>(context);
     final likes = Provider.of<LikesProvider>(context);
 
-    List<Event> displayEvents = [];
+    // Lista per le Strutture suggerite (Home)
+    final List<Venue> displayVenuesHome = venueProvider.venues.where((v) => 
+      v.ownerEmail.trim().toLowerCase() != _currentEmail.trim().toLowerCase()
+    ).toList();
+
+    List<dynamic> displayList = [];
+    List<Event> displayEventsHome = [];
     
     if (widget.onlyFavorites) {
-      displayEvents = _selectedTab == 0
-          ? eventProvider.events.where((e) => likes.isLiked(e.id)).toList()
-          : eventProvider.getUpcomingParticipations(_currentEmail);
+      if (_selectedTab == 1) {
+        // PARTECIPAZIONI
+        displayList = eventProvider.getUpcomingParticipations(_currentEmail);
+      } else {
+        // PREFERITI -> Filtro pillola sottostante
+        displayList = _favoriteType == 0
+            ? eventProvider.events.where((e) => likes.isLiked(e.id)).toList()
+            : venueProvider.venues.where((v) => likes.isVenueLiked(v.id)).toList();
+      }
     } else {
-      displayEvents = eventProvider.events.where((e) => 
+      // LOGICA HOME NORMALE
+      displayEventsHome = eventProvider.events.where((e) => 
         e.ownerEmail.trim().toLowerCase() != _currentEmail.trim().toLowerCase()
       ).toList();
 
       if (searchQuery.isNotEmpty) {
-        displayEvents = displayEvents.where((e) =>
+        displayEventsHome = displayEventsHome.where((e) =>
           e.name.toLowerCase().contains(searchQuery.toLowerCase())
         ).toList();
       }
@@ -81,7 +95,11 @@ class _EventsPageState extends State<EventsPage> {
       body: SafeArea(
         child: Column(
           children: [
-            if (widget.onlyFavorites) _buildTabSelector() else _buildSearchBar(),
+            if (widget.onlyFavorites) ...[
+              _buildTabSelector(),
+              if (_selectedTab == 0) _buildSubTabSelector(), // Appare solo in Preferiti
+            ] else 
+              _buildSearchBar(),
             
             Expanded(
               child: RefreshIndicator(
@@ -96,9 +114,9 @@ class _EventsPageState extends State<EventsPage> {
                           "Eventi per te",
                           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AllEventsPage()))
                         ),
-                        displayEvents.isEmpty
+                        displayEventsHome.isEmpty
                           ? _buildEmptyState("Nessun evento disponibile")
-                          : _buildHorizontalEventList(displayEvents),
+                          : _buildHorizontalEventList(displayEventsHome),
 
                         const SizedBox(height: 10),
 
@@ -106,18 +124,23 @@ class _EventsPageState extends State<EventsPage> {
                           "Strutture suggerite",
                           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AllVenuesPage()))
                         ),
-                        _buildHorizontalVenueList(venues),
+                        _buildHorizontalVenueList(displayVenuesHome),
                       ] else ...[
                         const SizedBox(height: 10),
-                        if (displayEvents.isEmpty)
+                        if (displayList.isEmpty)
                           _buildEmptyState("Nessun contenuto trovato")
                         else
                           ListView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
                             padding: const EdgeInsets.symmetric(horizontal: 16),
-                            itemCount: displayEvents.length,
-                            itemBuilder: (context, index) => _EventCardVertical(event: displayEvents[index]),
+                            itemCount: displayList.length,
+                            itemBuilder: (context, index) {
+                              final item = displayList[index];
+                              if (item is Event) return _EventCardVertical(event: item);
+                              if (item is Venue) return _VenueCardVertical(venue: item);
+                              return const SizedBox.shrink();
+                            },
                           ),
                       ],
                       const SizedBox(height: 100),
@@ -131,6 +154,55 @@ class _EventsPageState extends State<EventsPage> {
       ),
     );
   }
+
+  // --- WIDGETS DI SELEZIONE ---
+
+  Widget _buildSubTabSelector() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 8),
+      child: Container(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: Colors.grey[100], 
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: Colors.grey[200]!),
+        ),
+        child: Row(
+          children: [
+            _subTabButton("Eventi", 0),
+            _subTabButton("Strutture", 1),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _subTabButton(String text, int index) {
+    bool isSelected = _favoriteType == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _favoriteType = index),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.amber : Colors.transparent,
+            borderRadius: BorderRadius.circular(25),
+          ),
+          child: Text(
+            text,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              color: isSelected ? Colors.black : Colors.grey[600],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- ALTRI WIDGETS (Header, Search, etc.) ---
 
   Widget _buildEmptyState(String message) {
     return Center(
@@ -167,11 +239,7 @@ class _EventsPageState extends State<EventsPage> {
             if (searchQuery.isNotEmpty)
               IconButton(
                 icon: const Icon(Icons.close, size: 20, color: Colors.grey),
-                onPressed: () {
-                  setState(() {
-                    searchQuery = '';
-                  });
-                },
+                onPressed: () => setState(() => searchQuery = ''),
               ),
           ],
         ),
@@ -197,7 +265,10 @@ class _EventsPageState extends State<EventsPage> {
     bool isSelected = _selectedTab == index;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _selectedTab = index),
+        onTap: () => setState(() {
+          _selectedTab = index;
+          if (index == 1) _favoriteType = 0; // Reset sottolivello se si va in partecipazioni
+        }),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 10),
@@ -249,16 +320,18 @@ class _EventsPageState extends State<EventsPage> {
 
   Widget _buildHorizontalVenueList(List<Venue> list) {
     return SizedBox(
-      height: 250, // Uguale agli eventi
+      height: 250,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.only(left: 16),
         itemCount: list.length > 5 ? 5 : list.length,
-        itemBuilder: (context, index) => _VenueCardHorizontal(venue: list[index]),
+        itemBuilder: (context, index) => _VenueCardHorizontal(venue: list[index], userEmail: _currentEmail),
       ),
     );
   }
 }
+
+// --- CARD COMPONENTS ---
 
 class _EventCardHorizontal extends StatelessWidget {
   final Event event;
@@ -269,56 +342,145 @@ class _EventCardHorizontal extends StatelessWidget {
   Widget build(BuildContext context) {
     final likesProvider = Provider.of<LikesProvider>(context);
     bool isLiked = likesProvider.isLiked(event.id);
-    
-    Widget eventImage;
-    if (event.imagePaths.isNotEmpty && File(event.imagePaths.first).existsSync()) {
-      eventImage = Image.file(File(event.imagePaths.first), fit: BoxFit.cover);
-    } else {
-      eventImage = Container(color: Colors.amber[50], child: const Icon(Icons.image, color: Colors.amber));
-    }
+    final months = ["GEN", "FEB", "MAR", "APR", "MAG", "GIU", "LUG", "AGO", "SET", "OTT", "NOV", "DIC"];
+    String monthStr = months[event.date.month - 1];
+
+    return Container(
+      width: 260,
+      margin: const EdgeInsets.only(right: 16, bottom: 10),
+      child: GestureDetector(
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailPage(event: event))),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5))],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Column(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(child: (event.imagePaths.isNotEmpty && File(event.imagePaths.first).existsSync()) 
+                        ? Image.file(File(event.imagePaths.first), fit: BoxFit.cover) 
+                        : Container(color: Colors.amber[50], child: const Icon(Icons.image, color: Colors.amber))),
+                      Positioned(
+                        top: 12, left: 12,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(monthStr, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.indigo)),
+                              Text("${event.date.day}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 12, right: 12,
+                        child: GestureDetector(
+                          onTap: () => likesProvider.toggleLike(userEmail, event.id),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                            child: Icon(isLiked ? Icons.favorite : Icons.favorite_border, color: isLiked ? Colors.red : Colors.grey, size: 18),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(event.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text("${event.date.hour}:${event.date.minute.toString().padLeft(2, '0')}", style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                            const SizedBox(width: 12),
+                            const Icon(Icons.location_on_outlined, size: 14, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Expanded(child: Text(event.zone ?? 'Milano', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.grey, fontSize: 12))),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _VenueCardHorizontal extends StatelessWidget {
+  final Venue venue;
+  final String userEmail;
+  const _VenueCardHorizontal({required this.venue, required this.userEmail});
+
+  @override
+  Widget build(BuildContext context) {
+    final likesProvider = Provider.of<LikesProvider>(context);
+    bool isLiked = likesProvider.isVenueLiked(venue.id);
+    bool isOwner = venue.ownerEmail.trim().toLowerCase() == userEmail.trim().toLowerCase();
 
     return Container(
       width: 240,
       margin: const EdgeInsets.only(right: 16, bottom: 10),
       child: GestureDetector(
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailPage(event: event))),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => VenueDetailScreen(venue: venue))),
         child: Card(
           elevation: 3,
           clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: Stack(
             children: [
-              Positioned.fill(child: eventImage),
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, Colors.black.withOpacity(0.7)]
-                    )
-                  )
-                )
-              ),
+              Positioned.fill(child: (venue.imagePath != null && File(venue.imagePath!).existsSync()) 
+                ? Image.file(File(venue.imagePath!), fit: BoxFit.cover) 
+                : Container(color: Colors.amber[50], child: const Icon(Icons.store, color: Colors.amber))),
+              Positioned.fill(child: Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black.withOpacity(0.7)])))),
+              
+              // CUORICINO PER STRUTTURA (solo se non proprietario)
+              if (!isOwner)
+                Positioned(
+                  top: 10, right: 10,
+                  child: GestureDetector(
+                    onTap: () => likesProvider.toggleVenueLike(userEmail, venue.id),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                      child: Icon(isLiked ? Icons.favorite : Icons.favorite_border, color: isLiked ? Colors.red : Colors.grey, size: 18),
+                    ),
+                  ),
+                ),
+
               Positioned(
-                bottom: 12,
-                left: 12,
-                right: 12,
+                bottom: 12, left: 12, right: 12,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(event.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                    Text(event.zone ?? '', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                    Text(venue.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                    if (venue.address != null)
+                      Text(venue.address!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 12)),
                   ],
-                )
-              ),
-              Positioned(
-                top: 5,
-                left: 5,
-                child: IconButton(
-                  icon: Icon(isLiked ? Icons.favorite : Icons.favorite_border, color: isLiked ? Colors.red : Colors.white),
-                  onPressed: () => likesProvider.toggleLike(userEmail, event.id)
-                )
+                ),
               ),
             ],
           ),
@@ -334,141 +496,51 @@ class _EventCardVertical extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String? firstImagePath;
-    if (event.imagePaths.isNotEmpty) {
-      firstImagePath = event.imagePaths.first;
-    }
-
     return Card(
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-        side: BorderSide(color: Colors.grey[200]!),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: Colors.grey[200]!)),
       child: ListTile(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => EventDetailPage(event: event)),
-        ),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailPage(event: event))),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         leading: Container(
-          width: 55,
-          height: 55,
-          decoration: BoxDecoration(
-            color: Colors.amber[50],
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: (firstImagePath != null && File(firstImagePath).existsSync())
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.file(File(firstImagePath), fit: BoxFit.cover),
-                )
+          width: 55, height: 55,
+          decoration: BoxDecoration(color: Colors.amber[50], borderRadius: BorderRadius.circular(12)),
+          child: (event.imagePaths.isNotEmpty && File(event.imagePaths.first).existsSync())
+              ? ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.file(File(event.imagePaths.first), fit: BoxFit.cover))
               : const Icon(Icons.celebration, color: Colors.amber),
         ),
-        title: Text(
-          event.name,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Row(
-            children: [
-              const Icon(Icons.calendar_today, size: 12, color: Colors.grey),
-              const SizedBox(width: 4),
-              Text("${event.date.day}/${event.date.month}"),
-              const SizedBox(width: 12),
-              const Icon(Icons.location_on, size: 12, color: Colors.grey),
-              const SizedBox(width: 4),
-              Text(event.zone ?? 'Zona n.d.'),
-            ],
-          ),
-        ),
+        title: Text(event.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        subtitle: Text("${event.date.day}/${event.date.month} • ${event.zone ?? 'Milano'}"),
         trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
       ),
     );
   }
 }
 
-class _VenueCardHorizontal extends StatelessWidget {
+class _VenueCardVertical extends StatelessWidget {
   final Venue venue;
-  const _VenueCardHorizontal({required this.venue});
+  const _VenueCardVertical({required this.venue});
 
   @override
   Widget build(BuildContext context) {
-    Widget venueImage;
-    if (venue.imagePath != null && File(venue.imagePath!).existsSync()) {
-      venueImage = Image.file(File(venue.imagePath!), fit: BoxFit.cover);
-    } else {
-      venueImage = Container(
-        color: Colors.amber[50], 
-        child: const Icon(Icons.store, color: Colors.amber)
-      );
-    }
-
-    return Container(
-      width: 240, // Larghezza uguale agli eventi
-      margin: const EdgeInsets.only(right: 16, bottom: 10),
-      child: GestureDetector(
-        onTap: () => Navigator.push(
-          context, 
-          MaterialPageRoute(builder: (_) => VenueDetailScreen(venue: venue))
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: Colors.grey[200]!)),
+      child: ListTile(
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => VenueDetailScreen(venue: venue))),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        leading: Container(
+          width: 55, height: 55,
+          decoration: BoxDecoration(color: Colors.amber[50], borderRadius: BorderRadius.circular(12)),
+          child: (venue.imagePath != null && File(venue.imagePath!).existsSync())
+              ? ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.file(File(venue.imagePath!), fit: BoxFit.cover))
+              : const Icon(Icons.store, color: Colors.amber),
         ),
-        child: Card(
-          elevation: 3,
-          clipBehavior: Clip.antiAlias,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          child: Stack(
-            children: [
-              Positioned.fill(child: venueImage),
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent, 
-                        Colors.black.withOpacity(0.7)
-                      ]
-                    )
-                  )
-                )
-              ),
-              Positioned(
-                bottom: 12,
-                left: 12,
-                right: 12,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      venue.name, 
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white, 
-                        fontWeight: FontWeight.bold, 
-                        fontSize: 16
-                      )
-                    ),
-                    if (venue.address != null)
-                      Text(
-                        venue.address!, 
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white70, 
-                          fontSize: 12
-                        )
-                      ),
-                  ],
-                )
-              ),
-            ],
-          ),
-        ),
+        title: Text(venue.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        subtitle: Text(venue.address ?? 'Indirizzo non disponibile', maxLines: 1, overflow: TextOverflow.ellipsis),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
       ),
     );
   }
