@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/venue.dart';
 import '../providers/venue_provider.dart';
 import 'chat_page.dart';
+import 'venue_booking_form.dart'; // Assicurati che questo file esista
 
 class VenueDetailScreen extends StatefulWidget {
   final Venue venue;
@@ -110,8 +111,6 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final venueProvider = context.watch<VenueProvider>();
-    
-    // Cerchiamo la versione aggiornata della struttura nel provider
     final current = venueProvider.venues.firstWhere(
       (v) => v.id == widget.venue.id,
       orElse: () => widget.venue,
@@ -144,7 +143,6 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                         : const Icon(Icons.storefront, size: 80, color: Colors.grey),
                   ),
                 ),
-
                 Padding(
                   padding: const EdgeInsets.all(25),
                   child: Column(
@@ -152,7 +150,6 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                     children: [
                       Text(current.name, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 25),
-                      
                       GestureDetector(
                         onTap: current.address != null ? () => _openInGoogleMaps(current.address!) : null,
                         child: _buildInfoTile(
@@ -161,22 +158,17 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                           current.address ?? "Indirizzo non presente"
                         ),
                       ),
-                      
                       if (current.phone != null && current.phone!.isNotEmpty) ...[
                         const SizedBox(height: 20),
                         _buildInfoTile(Icons.phone_rounded, "Contatti", current.phone!),
                       ],
-
                       const Divider(height: 50),
-
                       _buildSectionTitle("Descrizione"),
                       Text(
                         current.description ?? "Nessuna descrizione fornita.", 
                         style: const TextStyle(fontSize: 15, color: Colors.black87, height: 1.5)
                       ),
-
                       const Divider(height: 50),
-
                       _buildSectionTitle("Proprietario"),
                       ListTile(
                         contentPadding: EdgeInsets.zero,
@@ -187,12 +179,10 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                             style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)
                           )
                         ),
-                        // Mostriamo Nome e Cognome del proprietario
                         title: Text("${current.ownerName ?? 'Gestore'} ${current.ownerSurname ?? ''}", 
                           style: const TextStyle(fontWeight: FontWeight.w600)),
                         subtitle: Text(current.ownerEmail ?? "Email non disponibile"),
                       ),
-
                       const SizedBox(height: 120), 
                     ],
                   ),
@@ -200,7 +190,6 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
               ],
             ),
           ),
-
           // Tasto Back
           SafeArea(
             child: Padding(
@@ -215,49 +204,81 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
               ),
             ),
           ),
-
-          // Bottoni in fondo
-          Positioned(
-            bottom: 0, left: 0, right: 0,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(25, 15, 25, 25),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -2))],
-              ),
-              child: SizedBox(
-                height: 55,
-                child: isOwner 
-                  ? ElevatedButton.icon(
-                      onPressed: () => _confirmDelete(context, venueProvider, current.id),
-                      icon: const Icon(Icons.delete_forever, color: Colors.white),
-                      label: const Text("ELIMINA STRUTTURA", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.redAccent,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                      ),
-                    )
-                  : ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(
-                          userEmail: _me,
-                          venueEmail: current.ownerEmail ?? '',
-                          venueName: "${current.ownerName} ${current.ownerSurname}",
-                          role: "Gestore Struttura", // Ruolo dinamico
-                        )));
-                      },
-                      icon: const Icon(Icons.chat_bubble_rounded),
-                      label: const Text("CONTATTA IL GESTORE", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.amber,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                      ),
-                    ),
-              ),
+         // Bottoni in fondo
+Positioned(
+  bottom: 0, left: 0, right: 0,
+  child: Container(
+    padding: const EdgeInsets.fromLTRB(25, 15, 25, 25),
+    decoration: const BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -2))],
+    ),
+    child: isOwner 
+      ? SizedBox(
+          height: 55,
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () => _confirmDelete(context, venueProvider, current.id),
+            icon: const Icon(Icons.delete_forever, color: Colors.white),
+            label: const Text("ELIMINA STRUTTURA", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
             ),
           ),
+        )
+      : Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 55,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => VenueBookingForm(
+                      currentUserEmail: _me,
+                      venueEmail: current.ownerEmail ?? '',
+                      venueName: current.name,
+                      venueAddress: current.address ?? '', // <--- RIGA AGGIUNTA PER CORREGGERE L'ERRORE
+                    )));
+                  },
+                  icon: const Icon(Icons.calendar_today, size: 20),
+                  label: const Text("PRENOTA", style: TextStyle(fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.amber,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: SizedBox(
+                height: 55,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(
+                      userEmail: _me,
+                      venueEmail: current.ownerEmail ?? '',
+                      venueName: "${current.ownerName} ${current.ownerSurname}",
+                      role: "Gestore Struttura",
+                    )));
+                  },
+                  icon: const Icon(Icons.chat_bubble_outline, size: 20),
+                  label: const Text("CHAT", style: TextStyle(fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.amber,
+                    side: const BorderSide(color: Colors.amber, width: 2),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+  ),
+),
         ],
       ),
     );

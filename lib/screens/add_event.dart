@@ -5,22 +5,23 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:geocoding/geocoding.dart';
 
-// Modelli
 import '../models/event.dart';
-
-// Provider
 import '../providers/event_provider.dart';
 
 class AddEventScreen extends StatefulWidget {
   final String ownerEmail;
   final String ownerName;
   final String ownerSurname;
+  final String? approvedVenueName;
+  final String? approvedVenueAddress;
 
   const AddEventScreen({
     super.key,
     required this.ownerEmail,
     required this.ownerName,
     required this.ownerSurname,
+    this.approvedVenueName,
+    this.approvedVenueAddress,
   });
 
   @override
@@ -30,23 +31,36 @@ class AddEventScreen extends StatefulWidget {
 class _AddEventScreenState extends State<AddEventScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final TextEditingController _nameController = TextEditingController();
+  late TextEditingController _nameController;
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _zoneController = TextEditingController();
-  final TextEditingController _addressController = TextEditingController();
+  late TextEditingController _addressController;
 
   DateTime? _selectedDate;
-  TimeOfDay? _selectedTime; // AGGIUNTA ORA
+  TimeOfDay? _selectedTime; 
   final int _maxParticipants = 10;
   
   ListType _listType = ListType.open;
-  AgeRestrictionType _ageRestrictionType = AgeRestrictionType.none;
+  final AgeRestrictionType _ageRestrictionType = AgeRestrictionType.none;
   int? _ageRestrictionValue;
 
   double? eventLat, eventLng;
   
   final List<File> _imageFiles = [];
   final ImagePicker _picker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(
+      text: widget.approvedVenueName != null ? "Evento presso ${widget.approvedVenueName}" : ""
+    );
+    _addressController = TextEditingController(text: widget.approvedVenueAddress ?? "");
+    
+    if (widget.approvedVenueAddress != null) {
+      _geocodeAddress();
+    }
+  }
 
   InputDecoration _pillInput(String label, IconData icon, {Widget? suffix}) {
     return InputDecoration(
@@ -79,7 +93,6 @@ class _AddEventScreenState extends State<AddEventScreen> {
   Future<void> _geocodeAddress() async {
     final raw = _addressController.text.trim();
     if (raw.isEmpty) return;
-    
     try {
       final query = '$raw, Roma, Italia'; 
       List<Location> locations = await locationFromAddress(query);
@@ -88,11 +101,6 @@ class _AddEventScreenState extends State<AddEventScreen> {
           eventLat = locations.first.latitude;
           eventLng = locations.first.longitude;
         });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('📍 Posizione confermata!')),
-          );
-        }
       }
     } catch (e) {
       debugPrint("Errore geocoding: $e");
@@ -110,7 +118,6 @@ class _AddEventScreenState extends State<AddEventScreen> {
     if (picked != null) setState(() => _selectedDate = picked);
   }
 
-  // AGGIUNTA FUNZIONE SELEZIONE ORA
   void _selectTime() async {
     final picked = await showTimePicker(
       context: context,
@@ -120,28 +127,18 @@ class _AddEventScreenState extends State<AddEventScreen> {
   }
 
   void _saveEvent() {
-    // Validazione estesa a data e ora
     if (!_formKey.currentState!.validate() || _selectedDate == null || _selectedTime == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Compila i campi obbligatori, data e ora')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Compila i campi obbligatori, data e ora')));
       return;
     }
     
-    // Combina Data e Ora in un unico DateTime
-    final finalDateTime = DateTime(
-      _selectedDate!.year,
-      _selectedDate!.month,
-      _selectedDate!.day,
-      _selectedTime!.hour,
-      _selectedTime!.minute,
-    );
+    final finalDateTime = DateTime(_selectedDate!.year, _selectedDate!.month, _selectedDate!.day, _selectedTime!.hour, _selectedTime!.minute);
     
     final newEvent = Event(
       id: const Uuid().v4(),
       name: _nameController.text.trim(),
       description: _descriptionController.text.trim(),
-      date: finalDateTime, // Usa il DateTime combinato
+      date: finalDateTime, 
       zone: _zoneController.text.trim(),
       fullAddress: _addressController.text.trim(),
       ownerEmail: widget.ownerEmail,
@@ -153,7 +150,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
       ageRestrictionValue: _ageRestrictionValue,
       participants: [],
       pendingRequests: [],
-      venueId: null, 
+      venueId: widget.approvedVenueName, 
       lat: eventLat,
       lng: eventLng,
       imagePaths: _imageFiles.map((f) => f.path).toList(), 
@@ -166,186 +163,71 @@ class _AddEventScreenState extends State<AddEventScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Crea Evento', style: TextStyle(fontWeight: FontWeight.bold)),
-      ),
+      appBar: AppBar(title: const Text('Crea Evento', style: TextStyle(fontWeight: FontWeight.bold))),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Form(
           key: _formKey,
           child: Column(
             children: [
-              // Foto Multipla
               GestureDetector(
                 onTap: _pickImages,
                 child: Container(
-                  height: 160,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(20),
-                  ),
+                  height: 160, width: double.infinity,
+                  decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(20)),
                   child: _imageFiles.isEmpty
                       ? const Icon(Icons.add_a_photo, size: 40, color: Colors.grey)
                       : ListView.builder(
                           scrollDirection: Axis.horizontal,
                           itemCount: _imageFiles.length,
-                          itemBuilder: (context, index) {
-                            return Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Stack(
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(15),
-                                    child: Image.file(_imageFiles[index], height: 140, width: 140, fit: BoxFit.cover),
-                                  ),
-                                  Positioned(
-                                    right: 0,
-                                    top: 0,
-                                    child: GestureDetector(
-                                      onTap: () => setState(() => _imageFiles.removeAt(index)),
-                                      child: const CircleAvatar(
-                                        radius: 12,
-                                        backgroundColor: Colors.red,
-                                        child: Icon(Icons.close, size: 15, color: Colors.white),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
+                          itemBuilder: (context, index) => Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Stack(
+                              children: [
+                                ClipRRect(borderRadius: BorderRadius.circular(15), child: Image.file(_imageFiles[index], height: 140, width: 140, fit: BoxFit.cover)),
+                                Positioned(right: 0, top: 0, child: GestureDetector(onTap: () => setState(() => _imageFiles.removeAt(index)), child: const CircleAvatar(radius: 12, backgroundColor: Colors.red, child: Icon(Icons.close, size: 15, color: Colors.white)))),
+                              ],
+                            ),
+                          ),
                         ),
                 ),
               ),
               const SizedBox(height: 20),
-
               TextFormField(
                 controller: _nameController,
+                readOnly: widget.approvedVenueName != null,
                 decoration: _pillInput('Nome Evento *', Icons.title),
                 validator: (v) => v!.isEmpty ? 'Inserisci un nome' : null,
               ),
               const SizedBox(height: 15),
-
-              TextFormField(
-                controller: _descriptionController,
-                maxLines: 3,
-                decoration: _pillInput('Descrizione', Icons.description),
-              ),
+              TextFormField(controller: _descriptionController, maxLines: 3, decoration: _pillInput('Descrizione', Icons.description)),
               const SizedBox(height: 15),
-
-              // RIGA DATA E ORA
               Row(
                 children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: _selectDate,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
-                            const SizedBox(width: 10),
-                            Text(_selectedDate == null 
-                                ? 'Data *' 
-                                : '${_selectedDate!.day}/${_selectedDate!.month}'),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                  Expanded(child: InkWell(onTap: _selectDate, child: Container(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15), decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(30)), child: Row(children: [const Icon(Icons.calendar_today, size: 18, color: Colors.grey), const SizedBox(width: 10), Text(_selectedDate == null ? 'Data *' : '${_selectedDate!.day}/${_selectedDate!.month}')])))),
                   const SizedBox(width: 10),
-                  Expanded(
-                    child: InkWell(
-                      onTap: _selectTime,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.access_time, size: 18, color: Colors.grey),
-                            const SizedBox(width: 10),
-                            Text(_selectedTime == null 
-                                ? 'Ora *' 
-                                : _selectedTime!.format(context)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                  Expanded(child: InkWell(onTap: _selectTime, child: Container(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15), decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(30)), child: Row(children: [const Icon(Icons.access_time, size: 18, color: Colors.grey), const SizedBox(width: 10), Text(_selectedTime == null ? 'Ora *' : _selectedTime!.format(context))])))),
                 ],
               ),
               const SizedBox(height: 15),
-
               TextFormField(
                 controller: _addressController,
-                decoration: _pillInput('Indirizzo', Icons.location_on, 
-                  suffix: IconButton(
-                    icon: const Icon(Icons.check_circle, color: Colors.amber),
-                    onPressed: _geocodeAddress,
-                  )
+                readOnly: widget.approvedVenueAddress != null,
+                decoration: _pillInput(
+                  'Indirizzo', 
+                  Icons.location_on, 
+                  suffix: widget.approvedVenueAddress == null 
+                    ? IconButton(icon: const Icon(Icons.check_circle, color: Colors.amber), onPressed: _geocodeAddress)
+                    : const Icon(Icons.verified, color: Colors.green),
                 ),
+                validator: (v) => v!.isEmpty ? 'L\'indirizzo è obbligatorio' : null,
               ),
               const SizedBox(height: 15),
-
-              TextFormField(
-                controller: _zoneController,
-                decoration: _pillInput('Zona (es. Eur, Centro, Trastevere)', Icons.map_outlined),
-                validator: (v) => v!.isEmpty ? 'Inserisci una zona per i filtri' : null,
-              ),
+              TextFormField(controller: _zoneController, decoration: _pillInput('Zona (es. Eur, Centro)', Icons.map_outlined), validator: (v) => v!.isEmpty ? 'Inserisci una zona' : null),
               const SizedBox(height: 15),
-
-              DropdownButtonFormField<ListType>(
-                initialValue: _listType,
-                decoration: _pillInput('Tipo Lista', Icons.list),
-                items: ListType.values.map((type) => DropdownMenuItem(
-                  value: type,
-                  child: Text(type == ListType.open ? 'Aperta' : 'Chiusa'),
-                )).toList(),
-                onChanged: (v) => setState(() => _listType = v!),
-              ),
-              const SizedBox(height: 15),
-
-              DropdownButtonFormField<AgeRestrictionType>(
-                initialValue: _ageRestrictionType,
-                decoration: _pillInput('Restrizione Età', Icons.person_search),
-                items: const [
-                  DropdownMenuItem(value: AgeRestrictionType.none, child: Text('Nessuna')),
-                  DropdownMenuItem(value: AgeRestrictionType.over, child: Text('Vietato ai minori (Over)')),
-                  DropdownMenuItem(value: AgeRestrictionType.under, child: Text('Solo per giovani (Under)')),
-                ],
-                onChanged: (v) => setState(() => _ageRestrictionType = v!),
-              ),
-              if (_ageRestrictionType != AgeRestrictionType.none) ...[
-                const SizedBox(height: 10),
-                TextFormField(
-                  decoration: _pillInput('Inserisci età limite', Icons.cake),
-                  keyboardType: TextInputType.number,
-                  onChanged: (v) => _ageRestrictionValue = int.tryParse(v),
-                ),
-              ],
-
+              DropdownButtonFormField<ListType>(initialValue: _listType, decoration: _pillInput('Tipo Lista', Icons.list), items: ListType.values.map((type) => DropdownMenuItem(value: type, child: Text(type == ListType.open ? 'Aperta' : 'Chiusa'))).toList(), onChanged: (v) => setState(() => _listType = v!)),
               const SizedBox(height: 30),
-
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _saveEvent,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.amber,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                  ),
-                  child: const Text('PUBBLICA', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-                ),
-              ),
+              SizedBox(width: double.infinity, height: 50, child: ElevatedButton(onPressed: _saveEvent, style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))), child: const Text('PUBBLICA', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)))),
             ],
           ),
         ),

@@ -32,7 +32,6 @@ class _UserProfilePageState extends State<UserProfilePage> {
     _loadUserEmailAndData();
   }
 
-  // --- STILE A PILLOLA COERENTE ---
   InputDecoration _pillInput(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
@@ -141,7 +140,9 @@ class _UserProfilePageState extends State<UserProfilePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Profilo salvato con successo')),
       );
-      if (Navigator.canPop(context)) Navigator.pop(context, true);
+      
+      // Torniamo indietro notificando che i dati sono cambiati
+      Navigator.pop(context, true);
     }
   }
 
@@ -150,8 +151,9 @@ class _UserProfilePageState extends State<UserProfilePage> {
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator(color: Colors.amber)));
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Modifica Profilo', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Profilo Personale', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.transparent,
@@ -232,7 +234,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
                   decoration: BoxDecoration(
                     color: Colors.grey[50],
                     borderRadius: BorderRadius.circular(30),
-                    border: Border.all(color: Colors.grey),
+                    border: Border.all(color: Colors.grey[300]!),
                   ),
                   child: Row(
                     children: [
@@ -255,16 +257,13 @@ class _UserProfilePageState extends State<UserProfilePage> {
 
               // --- GENERE ---
               DropdownButtonFormField<String>(
-                initialValue: _gender,
+                value: _gender,
                 decoration: _pillInput('Genere', Icons.wc_outlined),
-                items: [
-                  {'val': 'male', 'label': 'Uomo'},
-                  {'val': 'female', 'label': 'Donna'},
-                  {'val': 'other', 'label': 'Altro'}
-                ].map((g) => DropdownMenuItem(
-                  value: g['val'], 
-                  child: Text(g['label']!)
-                )).toList(),
+                items: const [
+                  DropdownMenuItem(value: 'male', child: Text('Uomo')),
+                  DropdownMenuItem(value: 'female', child: Text('Donna')),
+                  DropdownMenuItem(value: 'other', child: Text('Altro')),
+                ],
                 onChanged: (val) => setState(() => _gender = val),
                 validator: (v) => v == null ? 'Seleziona il genere' : null,
               ),
@@ -278,15 +277,12 @@ class _UserProfilePageState extends State<UserProfilePage> {
                 child: ElevatedButton(
                   onPressed: _saveUserData,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.amber,
-                    foregroundColor: Colors.black,
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                    elevation: 2,
+                    elevation: 5,
                   ),
-                  child: const Text(
-                    'SALVA PROFILO', 
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
-                  ),
+                  child: const Text('SALVA MODIFICHE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 ),
               ),
               const SizedBox(height: 20),

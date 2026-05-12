@@ -11,6 +11,7 @@ class Venue {
   final double lat;
   final double lng;
   final String? imagePath;
+  final int pendingRequestsCount;
 
   Venue({
     required this.id,
@@ -25,6 +26,7 @@ class Venue {
     required this.lat,
     required this.lng,
     this.imagePath,
+    this.pendingRequestsCount = 0,
   });
 
   factory Venue.fromMap(Map<String, dynamic> map) {
@@ -41,6 +43,7 @@ class Venue {
       imagePath: map['imagePath'] as String?,
       lat: (map['lat'] as num?)?.toDouble() ?? 41.9028,
       lng: (map['lng'] as num?)?.toDouble() ?? 12.4964,
+      pendingRequestsCount: map['pendingRequestsCount'] ?? 0,
     );
   }
 

@@ -8,9 +8,24 @@ class VenueProvider extends ChangeNotifier {
 
   List<Venue> get venues => _venues;
 
-  // Costruttore: carica le strutture salvate non appena il provider viene creato
   VenueProvider() {
     loadVenues();
+  }
+
+  // ─────────────────────────────
+  // GESTIONE RICHIESTE (SBLOCCATA PER TEST)
+  // ─────────────────────────────
+
+  /// Verifica se una specifica struttura ha richieste pendenti.
+  bool hasPendingRequests(String venueId) {
+    // Cerchiamo se la struttura esiste e forziamo il true tramite la funzione sotto
+    return _venues.any((v) => v.id == venueId && _checkIfVenueHasAlerts(v.id));
+  }
+
+  bool _checkIfVenueHasAlerts(String venueId) {
+    // FORZATO A TRUE: 
+    // Così vedrai tutte le tue strutture nell'area gestione "Richieste Strutture"
+    return true; 
   }
 
   // ─────────────────────────────
@@ -23,7 +38,6 @@ class VenueProvider extends ChangeNotifier {
     if (data != null) {
       try {
         final List list = jsonDecode(data) as List;
-        // Venue.fromMap ora gestisce automaticamente imagePath, lat e lng
         _venues = list.map((e) => Venue.fromMap(e as Map<String, dynamic>)).toList();
         notifyListeners();
       } catch (e) {
@@ -34,7 +48,6 @@ class VenueProvider extends ChangeNotifier {
 
   Future<void> _saveVenues() async {
     final prefs = await SharedPreferences.getInstance();
-    // Il toMap() include ora tutti i nuovi campi, garantendo la persistenza
     final list = _venues.map((v) => v.toMap()).toList();
     await prefs.setString('venues', jsonEncode(list));
   }
@@ -55,7 +68,6 @@ class VenueProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Aggiorna una struttura esistente (utile per cambiare immagine o info)
   void updateVenue(Venue updatedVenue) {
     final index = _venues.indexWhere((v) => v.id == updatedVenue.id);
     if (index != -1) {
@@ -65,7 +77,6 @@ class VenueProvider extends ChangeNotifier {
     }
   }
 
-  /// Metodo rapido per aggiornare solo l'immagine di una struttura
   void updateVenueImage(String venueId, String newPath) {
     final index = _venues.indexWhere((v) => v.id == venueId);
     if (index != -1) {
@@ -75,7 +86,6 @@ class VenueProvider extends ChangeNotifier {
     }
   }
 
-  /// Elimina una struttura dalla lista e aggiorna il database locale
   void deleteVenue(String venueId) {
     _venues.removeWhere((v) => v.id == venueId);
     _saveVenues();

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_first_app/screens/venue_requests_page.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -6,6 +7,7 @@ import 'dart:async';
 
 import 'auth/login.dart';
 import 'auth/register.dart';
+import 'providers/booking_provider.dart';
 import 'providers/likes_provider.dart';
 import 'providers/filter_provider.dart';
 import 'providers/theme_provider.dart';
@@ -28,21 +30,18 @@ void main() async {
   final currentUserEmail = prefs.getString('user_email') ?? '';
 
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(
-          create: (_) => EventProvider()..loadEvents(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => VenueProvider()..loadVenues(),
-        ),
-        ChangeNotifierProvider<MessageProvider>.value(value: messageProvider),
-        ChangeNotifierProvider(create: (_) => FilterProvider()),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()..loadTheme()),
-        ChangeNotifierProvider(create: (_) => LikesProvider()),
-      ],
-      child: MyApp(currentUserEmail: currentUserEmail),
-    ),
+   MultiProvider(
+  providers: [
+    ChangeNotifierProvider(create: (_) => VenueProvider()..loadVenues()),
+    ChangeNotifierProvider<MessageProvider>.value(value: messageProvider),
+    ChangeNotifierProvider(create: (_) => FilterProvider()),
+    ChangeNotifierProvider(create: (_) => ThemeProvider()..loadTheme()),
+    ChangeNotifierProvider(create: (_) => LikesProvider()),
+    ChangeNotifierProvider(create: (_) => EventProvider()..loadEvents()), // Carica eventi qui
+    ChangeNotifierProvider(create: (_) => BookingProvider()..loadRequests()), // Aggiunto load se presente
+  ],
+  child: MyApp(currentUserEmail: currentUserEmail),
+),
   );
 }
 
@@ -100,12 +99,13 @@ class MyApp extends StatelessWidget {
       home: SplashScreen(currentUserEmail: currentUserEmail),
       
       routes: {
-        '/login': (context) => const LoginScreen(),
-        '/register': (context) => const RegisterScreen(),
-        '/home': (context) => HomeScreen(currentUserEmail: currentUserEmail),
-        '/profile_edit': (context) => const UserProfilePage(),
-        '/map': (context) => const MapScreen(),
-      },
+  '/login': (context) => const LoginScreen(),
+  '/register': (context) => const RegisterScreen(),
+  '/home': (context) => HomeScreen(currentUserEmail: currentUserEmail),
+  '/profile_edit': (context) => const UserProfilePage(),
+  '/map': (context) => const MapScreen(),
+  '/venue_requests': (context) => VenueRequestsPage(venueEmail: currentUserEmail), // <--- AGGIUNTA
+},
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/message.dart';
 import '../providers/message_provider.dart';
+import 'venue_requests_page.dart'; // Import necessario per navigare alle richieste
 
 class ChatPage extends StatefulWidget {
   final String userEmail;    
@@ -45,6 +46,7 @@ class _ChatPageState extends State<ChatPage> {
       receiverName: widget.venueName,
       text: text,
       timestamp: DateTime.now(),
+      isRead: false,
     );
 
     final messageProvider = Provider.of<MessageProvider>(context, listen: false);
@@ -57,9 +59,13 @@ class _ChatPageState extends State<ChatPage> {
     final messageProvider = Provider.of<MessageProvider>(context);
     final messages = messageProvider.getMessagesBetween(widget.userEmail, widget.venueEmail);
 
-    // Se arrivano nuovi messaggi mentre la chat è aperta, segnali come letti
+    // Correzione errore microtask
     if (messageProvider.getUnreadCount(widget.userEmail, widget.venueEmail) > 0) {
-      Future.microtask(() => messageProvider.markAsRead(widget.userEmail, widget.venueEmail));
+      Future.microtask(() {
+        if (mounted) {
+          messageProvider.markAsRead(widget.userEmail, widget.venueEmail);
+        }
+      });
     }
 
     return Scaffold(
@@ -69,6 +75,25 @@ class _ChatPageState extends State<ChatPage> {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         titleSpacing: 0,
+        // AZIONI NELL'APPBAR: Aggiungiamo il tasto per il gestore
+        actions: [
+          if (widget.role == "Gestore Struttura") 
+            Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: IconButton(
+                icon: const Icon(Icons.assignment_turned_in_rounded, color: Colors.amber),
+                tooltip: 'Vedi Richieste',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => VenueRequestsPage(venueEmail: widget.userEmail),
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
         title: Row(
           children: [
             CircleAvatar(
@@ -134,7 +159,10 @@ class _ChatPageState extends State<ChatPage> {
           ),
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Colors.grey[200]!))),
+            decoration: BoxDecoration(
+              color: Colors.white, 
+              border: Border(top: BorderSide(color: Colors.grey[200]!))
+            ),
             child: SafeArea(
               child: Row(
                 children: [
@@ -157,9 +185,10 @@ class _ChatPageState extends State<ChatPage> {
                   const SizedBox(width: 10),
                   GestureDetector(
                     onTap: _sendMessage,
-                    child: const Text(
-                      "Invia",
-                      style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 16),
+                    child: const CircleAvatar(
+                      backgroundColor: Colors.blueAccent,
+                      radius: 22,
+                      child: Icon(Icons.send_rounded, color: Colors.white, size: 20),
                     ),
                   ),
                 ],
