@@ -17,15 +17,9 @@ class VenueProvider extends ChangeNotifier {
   // ─────────────────────────────
 
   /// Verifica se una specifica struttura ha richieste pendenti.
-  bool hasPendingRequests(String venueId) {
-    // Cerchiamo se la struttura esiste e forziamo il true tramite la funzione sotto
-    return _venues.any((v) => v.id == venueId && _checkIfVenueHasAlerts(v.id));
-  }
-
-  bool _checkIfVenueHasAlerts(String venueId) {
-    // FORZATO A TRUE: 
-    // Così vedrai tutte le tue strutture nell'area gestione "Richieste Strutture"
-    return true; 
+ bool hasPendingRequests(String venueId, List<dynamic> allRequests) {
+    // Cerchiamo se tra tutte le prenotazioni ce n'è una per questa struttura con stato 'pending'
+    return allRequests.any((r) => r.venueId == venueId && r.status == 'pending');
   }
 
   // ─────────────────────────────

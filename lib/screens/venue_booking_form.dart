@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart'; // <--- AGGIUNTO per formattare la data
 import '../models/message.dart'; 
 import '../providers/booking_provider.dart';
 import '../providers/message_provider.dart';
@@ -8,14 +9,14 @@ class VenueBookingForm extends StatefulWidget {
   final String currentUserEmail;
   final String venueEmail;
   final String venueName;
-  final String venueAddress; // <--- AGGIUNTO: Riceviamo l'indirizzo dal dettaglio
+  final String venueAddress;
 
   const VenueBookingForm({
     super.key,
     required this.currentUserEmail,
     required this.venueEmail,
     required this.venueName,
-    required this.venueAddress, // <--- AGGIUNTO
+    required this.venueAddress,
   });
 
   @override
@@ -28,32 +29,67 @@ class _VenueBookingFormState extends State<VenueBookingForm> {
   final _msgController = TextEditingController();
   final _timeController = TextEditingController();
 
+  // Funzione per selezionare la data tramite calendario
+  Future<void> _selectDate() async {
+    DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(), // Impedisce di selezionare date passate
+      lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(primary: Colors.amber),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (pickedDate != null) {
+      setState(() {
+        _dateController.text = DateFormat('dd/MM/yyyy').format(pickedDate);
+      });
+    }
+  }
+
+  // Funzione per selezionare l'orario (semplificata a ora singola invece di range libero)
+  Future<void> _selectTime() async {
+    TimeOfDay? pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+
+    if (pickedTime != null) {
+      setState(() {
+        _timeController.text = pickedTime.format(context);
+      });
+    }
+  }
+
   void _submitRequest() {
-    if (_dateController.text.isEmpty || _peopleController.text.isEmpty) {
+    if (_dateController.text.isEmpty || _peopleController.text.isEmpty || _timeController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Compila i campi obbligatori")),
+        const SnackBar(content: Text("Compila tutti i campi obbligatori")),
       );
       return;
     }
 
-    // 1. Creazione della richiesta (Ora con venueAddress)
     final newRequest = VenueBookingRequest(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       senderEmail: widget.currentUserEmail,
       venueEmail: widget.venueEmail,
       venueName: widget.venueName,
-      venueAddress: widget.venueAddress, // <--- ORA LA RIGA 38 È CORRETTA
+      venueAddress: widget.venueAddress,
       date: _dateController.text,
       timeRange: _timeController.text,
       peopleCount: int.tryParse(_peopleController.text) ?? 0,
       message: _msgController.text,
     );
 
-    // Salva nel BookingProvider
     context.read<BookingProvider>().sendRequest(newRequest);
 
-    // 2. Notifica in Chat
-    final textNotif = "Richiesta di ospitalità per il ${newRequest.date}. Controlla le tue richieste!";
+    final textNotif = "Richiesta di ospitalità per il ${newRequest.date} alle ore ${newRequest.timeRange}.";
     
     final messageObj = Message(
       senderEmail: widget.currentUserEmail,
@@ -73,7 +109,6 @@ class _VenueBookingFormState extends State<VenueBookingForm> {
     );
   }
 
-  // ... Resto del widget (build e _buildField) rimane uguale ...
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -88,10 +123,28 @@ class _VenueBookingFormState extends State<VenueBookingForm> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            _buildField("Data dell'evento", _dateController, Icons.calendar_today, "Es: 25/05/2026"),
+            // Campo Data con selettore
+            _buildField(
+              "Data dell'evento", 
+              _dateController, 
+              Icons.calendar_today, 
+              "Seleziona data",
+              readOnly: true,
+              onTap: _selectDate,
+            ),
             const SizedBox(height: 15),
-            _buildField("Fascia oraria", _timeController, Icons.access_time, "Es: 18:00 - 23:00"),
+            
+            // Campo Orario con selettore
+            _buildField(
+              "Orario inizio", 
+              _timeController, 
+              Icons.access_time, 
+              "Seleziona orario",
+              readOnly: true,
+              onTap: _selectTime,
+            ),
             const SizedBox(height: 15),
+            
             _buildField("Numero persone previste", _peopleController, Icons.group, "Es: 50", inputType: TextInputType.number),
             const SizedBox(height: 15),
             _buildField("Messaggio per il gestore", _msgController, Icons.message, "Racconta brevemente il tuo evento...", maxLines: 4),
@@ -119,11 +172,23 @@ class _VenueBookingFormState extends State<VenueBookingForm> {
     );
   }
 
-  Widget _buildField(String label, TextEditingController ctrl, IconData icon, String hint, {TextInputType inputType = TextInputType.text, int maxLines = 1}) {
+  // Helper aggiornato per gestire i click e il readOnly
+  Widget _buildField(
+    String label, 
+    TextEditingController ctrl, 
+    IconData icon, 
+    String hint, 
+    {TextInputType inputType = TextInputType.text, 
+    int maxLines = 1, 
+    bool readOnly = false, 
+    VoidCallback? onTap}
+  ) {
     return TextField(
       controller: ctrl,
       keyboardType: inputType,
       maxLines: maxLines,
+      readOnly: readOnly,
+      onTap: onTap,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,

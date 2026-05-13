@@ -7,6 +7,7 @@ import 'package:geocoding/geocoding.dart';
 
 import '../models/event.dart';
 import '../providers/event_provider.dart';
+import '../providers/booking_provider.dart'; // Aggiunto per recuperare le strutture
 
 class AddEventScreen extends StatefulWidget {
   final String ownerEmail;
@@ -37,7 +38,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
   late TextEditingController _addressController;
 
   DateTime? _selectedDate;
-  TimeOfDay? _selectedTime; 
+  TimeOfDay? _selectedTime;
   final int _maxParticipants = 10;
   
   ListType _listType = ListType.open;
@@ -46,6 +47,9 @@ class _AddEventScreenState extends State<AddEventScreen> {
 
   double? eventLat, eventLng;
   
+  // Variabile per la struttura scelta opzionalmente
+  String? _selectedVenueName;
+
   final List<File> _imageFiles = [];
   final ImagePicker _picker = ImagePicker();
 
@@ -57,6 +61,9 @@ class _AddEventScreenState extends State<AddEventScreen> {
     );
     _addressController = TextEditingController(text: widget.approvedVenueAddress ?? "");
     
+    // Se arrivo con una struttura già passata, la imposto come scelta
+    _selectedVenueName = widget.approvedVenueName;
+
     if (widget.approvedVenueAddress != null) {
       _geocodeAddress();
     }
@@ -94,7 +101,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
     final raw = _addressController.text.trim();
     if (raw.isEmpty) return;
     try {
-      final query = '$raw, Roma, Italia'; 
+      final query = '$raw, Roma, Italia';
       List<Location> locations = await locationFromAddress(query);
       if (locations.isNotEmpty) {
         setState(() {
@@ -138,7 +145,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
       id: const Uuid().v4(),
       name: _nameController.text.trim(),
       description: _descriptionController.text.trim(),
-      date: finalDateTime, 
+      date: finalDateTime,
       zone: _zoneController.text.trim(),
       fullAddress: _addressController.text.trim(),
       ownerEmail: widget.ownerEmail,
@@ -150,10 +157,11 @@ class _AddEventScreenState extends State<AddEventScreen> {
       ageRestrictionValue: _ageRestrictionValue,
       participants: [],
       pendingRequests: [],
-      venueId: widget.approvedVenueName, 
+      // Salva la struttura se selezionata o passata dal widget
+      venueId: _selectedVenueName, 
       lat: eventLat,
       lng: eventLng,
-      imagePaths: _imageFiles.map((f) => f.path).toList(), 
+      imagePaths: _imageFiles.map((f) => f.path).toList(),
     );
 
     context.read<EventProvider>().addEvent(newEvent);
@@ -162,6 +170,12 @@ class _AddEventScreenState extends State<AddEventScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Recupero le richieste approvate dell'utente
+    final bookingProvider = context.watch<BookingProvider>();
+    final approvedRequests = bookingProvider.requests
+        .where((r) => r.senderEmail == widget.ownerEmail && (r.status == 'approved' || r.status == 'accepted'))
+        .toList();
+
     return Scaffold(
       appBar: AppBar(title: const Text('Crea Evento', style: TextStyle(fontWeight: FontWeight.bold))),
       body: SingleChildScrollView(
@@ -195,6 +209,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
               const SizedBox(height: 20),
               TextFormField(
                 controller: _nameController,
+                // Sola lettura solo se è già stata passata una struttura specifica
                 readOnly: widget.approvedVenueName != null,
                 decoration: _pillInput('Nome Evento *', Icons.title),
                 validator: (v) => v!.isEmpty ? 'Inserisci un nome' : null,
@@ -212,11 +227,12 @@ class _AddEventScreenState extends State<AddEventScreen> {
               const SizedBox(height: 15),
               TextFormField(
                 controller: _addressController,
-                readOnly: widget.approvedVenueAddress != null,
+                // Sola lettura solo se la struttura è già bloccata
+                readOnly: widget.approvedVenueAddress != null || (_selectedVenueName != null && _selectedVenueName!.isNotEmpty),
                 decoration: _pillInput(
-                  'Indirizzo', 
-                  Icons.location_on, 
-                  suffix: widget.approvedVenueAddress == null 
+                  'Indirizzo',
+                  Icons.location_on,
+                  suffix: (widget.approvedVenueAddress == null && _selectedVenueName == null)
                     ? IconButton(icon: const Icon(Icons.check_circle, color: Colors.amber), onPressed: _geocodeAddress)
                     : const Icon(Icons.verified, color: Colors.green),
                 ),
@@ -225,7 +241,39 @@ class _AddEventScreenState extends State<AddEventScreen> {
               const SizedBox(height: 15),
               TextFormField(controller: _zoneController, decoration: _pillInput('Zona (es. Eur, Centro)', Icons.map_outlined), validator: (v) => v!.isEmpty ? 'Inserisci una zona' : null),
               const SizedBox(height: 15),
-              DropdownButtonFormField<ListType>(initialValue: _listType, decoration: _pillInput('Tipo Lista', Icons.list), items: ListType.values.map((type) => DropdownMenuItem(value: type, child: Text(type == ListType.open ? 'Aperta' : 'Chiusa'))).toList(), onChanged: (v) => setState(() => _listType = v!)),
+              DropdownButtonFormField<ListType>(value: _listType, decoration: _pillInput('Tipo Lista', Icons.list), items: ListType.values.map((type) => DropdownMenuItem(value: type, child: Text(type == ListType.open ? 'Aperta' : 'Chiusa'))).toList(), onChanged: (v) => setState(() => _listType = v!)),
+              
+              const SizedBox(height: 15),
+              
+              // --- NUOVA OPZIONE STRUTTURA IN FONDO ---
+              DropdownButtonFormField<String?>(
+                value: _selectedVenueName,
+                decoration: _pillInput('Opzione Struttura', Icons.business),
+                items: [
+                  const DropdownMenuItem(value: null, child: Text("Nessuna (Evento Libero)")),
+                  ...approvedRequests.map((req) => DropdownMenuItem(
+                    value: req.venueName,
+                    child: Text(req.venueName),
+                  )),
+                ],
+                onChanged: (val) {
+                  setState(() {
+                    _selectedVenueName = val;
+                    if (val != null) {
+                      // Se scelgo una struttura, aggiorno indirizzo e nome
+                      final req = approvedRequests.firstWhere((r) => r.venueName == val);
+                      _addressController.text = req.venueAddress;
+                      _nameController.text = "Evento presso $val";
+                      _geocodeAddress();
+                    } else {
+                      // Se scelgo nessuna, svuoto per inserimento manuale
+                      _addressController.clear();
+                      _nameController.clear();
+                    }
+                  });
+                },
+              ),
+              
               const SizedBox(height: 30),
               SizedBox(width: double.infinity, height: 50, child: ElevatedButton(onPressed: _saveEvent, style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))), child: const Text('PUBBLICA', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)))),
             ],

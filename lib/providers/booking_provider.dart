@@ -7,7 +7,7 @@ class VenueBookingRequest {
   final String senderEmail;
   final String venueEmail;
   final String venueName;
-  final String venueAddress; // <--- AGGIUNTO
+  final String venueAddress;
   final String date;
   final String timeRange;
   final int peopleCount;
@@ -50,7 +50,7 @@ class VenueBookingRequest {
     timeRange: map['timeRange'],
     peopleCount: map['peopleCount'],
     message: map['message'],
-    status: map['status'],
+    status: map['status'] ?? 'pending',
   );
 }
 
@@ -59,6 +59,11 @@ class BookingProvider with ChangeNotifier {
   List<VenueBookingRequest> get requests => _requests;
 
   BookingProvider() { loadRequests(); }
+
+  // Restituisce le richieste pendenti per una specifica email proprietario
+  List<VenueBookingRequest> getPendingRequestsForOwner(String ownerEmail) {
+    return _requests.where((r) => r.venueEmail == ownerEmail && r.status == 'pending').toList();
+  }
 
   Future<void> sendRequest(VenueBookingRequest request) async {
     _requests.add(request);

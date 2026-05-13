@@ -257,7 +257,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
 
               // --- GENERE ---
               DropdownButtonFormField<String>(
-                value: _gender,
+                initialValue: _gender,
                 decoration: _pillInput('Genere', Icons.wc_outlined),
                 items: const [
                   DropdownMenuItem(value: 'male', child: Text('Uomo')),

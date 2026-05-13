@@ -1,11 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/booking_provider.dart';
+import '../providers/message_provider.dart'; // Aggiunto import
+import '../models/message.dart';           // Aggiunto import
 
 class VenueRequestsPage extends StatelessWidget {
-  final String venueEmail; // L'email del locale loggato
+  final String venueEmail;
 
   const VenueRequestsPage({super.key, required this.venueEmail});
+
+  // Funzione di supporto per gestire l'azione e inviare il messaggio
+  void _processRequest(BuildContext context, dynamic req, String newStatus) {
+    final bookingProvider = Provider.of<BookingProvider>(context, listen: false);
+    final messageProvider = Provider.of<MessageProvider>(context, listen: false);
+
+    // 1. Aggiorna lo stato della richiesta
+    bookingProvider.updateRequestStatus(req.id, newStatus);
+
+    // 2. Prepara il testo del messaggio
+    String notifyText = newStatus == 'accepted'
+        ? "✅ La tua richiesta per la struttura '${req.venueName}' è stata ACCETTATA!"
+        : "❌ Mi dispiace, la tua richiesta per la struttura '${req.venueName}' è stata RIFIUTATA.";
+
+    // 3. Invia il messaggio automatico
+    final autoMessage = Message(
+      senderEmail: req.venueEmail,   // La struttura invia
+      receiverEmail: req.senderEmail, // L'utente riceve
+      senderName: req.venueName,
+      receiverName: req.senderEmail.split('@')[0],
+      text: notifyText,
+      timestamp: DateTime.now(),
+      isRead: false,
+    );
+
+    messageProvider.sendMessage(autoMessage);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,14 +72,16 @@ class VenueRequestsPage extends StatelessWidget {
                               Expanded(
                                 child: ElevatedButton(
                                   style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                                  onPressed: () => bookingProvider.updateRequestStatus(req.id, 'accepted'),
+                                  // Chiamata alla nuova funzione
+                                  onPressed: () => _processRequest(context, req, 'accepted'),
                                   child: const Text("ACCETTA", style: TextStyle(color: Colors.white)),
                                 ),
                               ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: OutlinedButton(
-                                  onPressed: () => bookingProvider.updateRequestStatus(req.id, 'rejected'),
+                                  // Chiamata alla nuova funzione
+                                  onPressed: () => _processRequest(context, req, 'rejected'),
                                   child: const Text("RIFIUTA", style: TextStyle(color: Colors.red)),
                                 ),
                               ),
