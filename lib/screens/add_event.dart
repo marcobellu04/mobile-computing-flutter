@@ -7,7 +7,7 @@ import 'package:geocoding/geocoding.dart';
 
 import '../models/event.dart';
 import '../providers/event_provider.dart';
-import '../providers/booking_provider.dart'; // Aggiunto per recuperare le strutture
+import '../providers/booking_provider.dart'; 
 
 class AddEventScreen extends StatefulWidget {
   final String ownerEmail;
@@ -36,6 +36,10 @@ class _AddEventScreenState extends State<AddEventScreen> {
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _zoneController = TextEditingController();
   late TextEditingController _addressController;
+  
+  // NUOVI CONTROLLER PER PRECISIONE GEOLOCALIZZAZIONE
+  final TextEditingController _cityController = TextEditingController();
+  final TextEditingController _capController = TextEditingController();
 
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
@@ -46,8 +50,6 @@ class _AddEventScreenState extends State<AddEventScreen> {
   int? _ageRestrictionValue;
 
   double? eventLat, eventLng;
-  
-  // Variabile per la struttura scelta opzionalmente
   String? _selectedVenueName;
 
   final List<File> _imageFiles = [];
@@ -61,7 +63,6 @@ class _AddEventScreenState extends State<AddEventScreen> {
     );
     _addressController = TextEditingController(text: widget.approvedVenueAddress ?? "");
     
-    // Se arrivo con una struttura già passata, la imposto come scelta
     _selectedVenueName = widget.approvedVenueName;
 
     if (widget.approvedVenueAddress != null) {
@@ -97,11 +98,29 @@ class _AddEventScreenState extends State<AddEventScreen> {
     }
   }
 
+  // Costruisce la stringa completa dell'indirizzo per evitare ambiguità
+  String _buildFullAddressString() {
+    if (widget.approvedVenueAddress != null || (_selectedVenueName != null && _selectedVenueName!.isNotEmpty)) {
+      return _addressController.text.trim();
+    }
+    
+    final via = _addressController.text.trim();
+    final citta = _cityController.text.trim();
+    final cap = _capController.text.trim();
+    
+    List<String> parts = [via];
+    if (cap.isNotEmpty) parts.add(cap);
+    if (citta.isNotEmpty) parts.add(citta);
+    parts.add("Italia");
+    
+    return parts.join(", ");
+  }
+
   Future<void> _geocodeAddress() async {
-    final raw = _addressController.text.trim();
-    if (raw.isEmpty) return;
+    final query = _buildFullAddressString();
+    if (query.replaceAll(", Italia", "").trim().isEmpty) return;
+    
     try {
-      final query = '$raw, Roma, Italia';
       List<Location> locations = await locationFromAddress(query);
       if (locations.isNotEmpty) {
         setState(() {
@@ -147,7 +166,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
       description: _descriptionController.text.trim(),
       date: finalDateTime,
       zone: _zoneController.text.trim(),
-      fullAddress: _addressController.text.trim(),
+      fullAddress: _buildFullAddressString(), // Salviamo l'indirizzo completo formattato bene
       ownerEmail: widget.ownerEmail,
       ownerName: widget.ownerName,
       ownerSurname: widget.ownerSurname,
@@ -157,7 +176,6 @@ class _AddEventScreenState extends State<AddEventScreen> {
       ageRestrictionValue: _ageRestrictionValue,
       participants: [],
       pendingRequests: [],
-      // Salva la struttura se selezionata o passata dal widget
       venueId: _selectedVenueName, 
       lat: eventLat,
       lng: eventLng,
@@ -170,11 +188,13 @@ class _AddEventScreenState extends State<AddEventScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Recupero le richieste approvate dell'utente
     final bookingProvider = context.watch<BookingProvider>();
     final approvedRequests = bookingProvider.requests
         .where((r) => r.senderEmail == widget.ownerEmail && (r.status == 'approved' || r.status == 'accepted'))
         .toList();
+
+    // Controlla se l'input manuale è bloccato (perché c'è una struttura associata)
+    final bool isManualInputLocked = widget.approvedVenueAddress != null || (_selectedVenueName != null && _selectedVenueName!.isNotEmpty);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Crea Evento', style: TextStyle(fontWeight: FontWeight.bold))),
@@ -209,7 +229,6 @@ class _AddEventScreenState extends State<AddEventScreen> {
               const SizedBox(height: 20),
               TextFormField(
                 controller: _nameController,
-                // Sola lettura solo se è già stata passata una struttura specifica
                 readOnly: widget.approvedVenueName != null,
                 decoration: _pillInput('Nome Evento *', Icons.title),
                 validator: (v) => v!.isEmpty ? 'Inserisci un nome' : null,
@@ -225,29 +244,80 @@ class _AddEventScreenState extends State<AddEventScreen> {
                 ],
               ),
               const SizedBox(height: 15),
+              
+              // CAMPO 1: VIA E CIVICO
               TextFormField(
                 controller: _addressController,
-                // Sola lettura solo se la struttura è già bloccata
-                readOnly: widget.approvedVenueAddress != null || (_selectedVenueName != null && _selectedVenueName!.isNotEmpty),
+                readOnly: isManualInputLocked,
                 decoration: _pillInput(
-                  'Indirizzo',
+                  isManualInputLocked ? 'Indirizzo Struttura' : 'Via e Numero Civico *',
                   Icons.location_on,
-                  suffix: (widget.approvedVenueAddress == null && _selectedVenueName == null)
-                    ? IconButton(icon: const Icon(Icons.check_circle, color: Colors.amber), onPressed: _geocodeAddress)
-                    : const Icon(Icons.verified, color: Colors.green),
+                  suffix: isManualInputLocked ? const Icon(Icons.verified, color: Colors.green) : null,
                 ),
                 validator: (v) => v!.isEmpty ? 'L\'indirizzo è obbligatorio' : null,
               ),
+              
+              // SE L'INSERIMENTO È MANUALE, ABILITA I NUOVI CAMPI DETTAGLIATI
+              if (!isManualInputLocked) ...[
+                const SizedBox(height: 15),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: TextFormField(
+                        controller: _cityController,
+                        decoration: _pillInput('Città *', Icons.location_city),
+                        validator: (v) => v!.isEmpty ? 'Inserisci la città' : null,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      flex: 1,
+                      child: TextFormField(
+                        controller: _capController,
+                        keyboardType: TextInputType.number,
+                        decoration: _pillInput('CAP', Icons.markunread_mailbox_outlined),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: () async {
+                      if (_addressController.text.isNotEmpty && _cityController.text.isNotEmpty) {
+                        await _geocodeAddress();
+                        if (eventLat != null && eventLng != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Posizione verificata sulla mappa con successo!'), backgroundColor: Colors.green)
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Impossibile geolocalizzare, controlla i dati.'), backgroundColor: Colors.redAccent)
+                          );
+                        }
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Inserisci prima Via e Città per verificare.'))
+                        );
+                      }
+                    },
+                    icon: Icon(eventLat != null ? Icons.check_circle : Icons.gps_fixed, color: eventLat != null ? Colors.green : Colors.amber),
+                    label: Text(eventLat != null ? 'Posizione Verificata' : 'Verifica Posizione sulla Mappa', style: TextStyle(color: eventLat != null ? Colors.green : Colors.amber, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+
               const SizedBox(height: 15),
               TextFormField(controller: _zoneController, decoration: _pillInput('Zona (es. Eur, Centro)', Icons.map_outlined), validator: (v) => v!.isEmpty ? 'Inserisci una zona' : null),
               const SizedBox(height: 15),
-              DropdownButtonFormField<ListType>(value: _listType, decoration: _pillInput('Tipo Lista', Icons.list), items: ListType.values.map((type) => DropdownMenuItem(value: type, child: Text(type == ListType.open ? 'Aperta' : 'Chiusa'))).toList(), onChanged: (v) => setState(() => _listType = v!)),
+              DropdownButtonFormField<ListType>(initialValue: _listType, decoration: _pillInput('Tipo Lista', Icons.list), items: ListType.values.map((type) => DropdownMenuItem(value: type, child: Text(type == ListType.open ? 'Aperta' : 'Chiusa'))).toList(), onChanged: (v) => setState(() => _listType = v!)),
               
               const SizedBox(height: 15),
               
-              // --- NUOVA OPZIONE STRUTTURA IN FONDO ---
               DropdownButtonFormField<String?>(
-                value: _selectedVenueName,
+                initialValue: _selectedVenueName,
                 decoration: _pillInput('Opzione Struttura', Icons.business),
                 items: [
                   const DropdownMenuItem(value: null, child: Text("Nessuna (Evento Libero)")),
@@ -260,15 +330,17 @@ class _AddEventScreenState extends State<AddEventScreen> {
                   setState(() {
                     _selectedVenueName = val;
                     if (val != null) {
-                      // Se scelgo una struttura, aggiorno indirizzo e nome
                       final req = approvedRequests.firstWhere((r) => r.venueName == val);
                       _addressController.text = req.venueAddress;
                       _nameController.text = "Evento presso $val";
                       _geocodeAddress();
                     } else {
-                      // Se scelgo nessuna, svuoto per inserimento manuale
                       _addressController.clear();
+                      _cityController.clear();
+                      _capController.clear();
                       _nameController.clear();
+                      eventLat = null;
+                      eventLng = null;
                     }
                   });
                 },

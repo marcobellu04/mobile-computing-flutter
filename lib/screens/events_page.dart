@@ -121,9 +121,9 @@ class _EventsPageState extends State<EventsPage> {
                         const SizedBox(height: 10),
 
                         _buildHeader(
-                          "Strutture suggerite",
-                          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AllVenuesPage()))
-                        ),
+  "Strutture suggerite",
+  () => Navigator.push(context, MaterialPageRoute(builder: (_) => AllVenuesPage(currentUserEmail: _currentEmail)))
+),
                         _buildHorizontalVenueList(displayVenuesHome),
                       ] else ...[
                         const SizedBox(height: 10),

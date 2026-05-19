@@ -7,7 +7,10 @@ import '../screens/venue_detail_screen.dart';
 import '../widgets/filter_zone.dart';
 
 class AllVenuesPage extends StatefulWidget {
-  const AllVenuesPage({super.key});
+  // CORRETTO: Aggiunto il parametro obbligatorio per l'email dell'utente
+  final String currentUserEmail;
+
+  const AllVenuesPage({super.key, required this.currentUserEmail});
 
   @override
   State<AllVenuesPage> createState() => _AllVenuesPageState();
@@ -34,7 +37,11 @@ class _AllVenuesPageState extends State<AllVenuesPage> {
   @override
   Widget build(BuildContext context) {
     final venueProvider = context.watch<VenueProvider>();
-    final allVenues = venueProvider.venues;
+    
+    // CORRETTO: Filtriamo le strutture escludendo quelle appartenenti all'utente loggato
+    final allVenues = venueProvider.venues.where((v) => 
+      v.ownerEmail.trim().toLowerCase() != widget.currentUserEmail.trim().toLowerCase()
+    ).toList();
 
     // Generazione zone univoche
     final List<String> availableZones = allVenues

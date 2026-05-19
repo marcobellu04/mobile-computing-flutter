@@ -85,4 +85,10 @@ class VenueProvider extends ChangeNotifier {
     _saveVenues();
     notifyListeners();
   }
+
+  void deleteVenuesByOwner(String ownerEmail) {
+    _venues.removeWhere((v) => v.ownerEmail.trim().toLowerCase() == ownerEmail.trim().toLowerCase());
+    _saveVenues();
+    notifyListeners();
+  }
 }

@@ -115,6 +115,12 @@ class EventProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void deleteEventsByOwner(String ownerEmail) {
+    _events.removeWhere((e) => e.ownerEmail.trim().toLowerCase() == ownerEmail.trim().toLowerCase());
+    _saveEvents();
+    notifyListeners();
+  }
+
   // --- GETTERS PER FILTRI ---
   
   List<Event> getUpcomingParticipations(String email) {
