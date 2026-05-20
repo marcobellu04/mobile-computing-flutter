@@ -34,8 +34,13 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^3.0.0
   flutter_launcher_icons: ^0.13.1
+flutter_launcher_icons:
+  android: "launcher_icon"
+  image_path: "assets/app_icon.png"
+  adaptive_icon_background: "#320064" # <--- Metti il codice esatto qui!
+  adaptive_icon_foreground: "assets/app_icon.png"
 
 flutter:
   uses-material-design: true
-  # Se non hai immagini da caricare nell'interfaccia, 
-  # puoi anche rimuovere la sezione 'assets' completamente.
+  assets:
+    - assets/app_icon.png

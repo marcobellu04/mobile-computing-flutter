@@ -30,18 +30,18 @@ void main() async {
   final currentUserEmail = prefs.getString('user_email') ?? '';
 
   runApp(
-   MultiProvider(
-  providers: [
-    ChangeNotifierProvider(create: (_) => VenueProvider()..loadVenues()),
-    ChangeNotifierProvider<MessageProvider>.value(value: messageProvider),
-    ChangeNotifierProvider(create: (_) => FilterProvider()),
-    ChangeNotifierProvider(create: (_) => ThemeProvider()..loadTheme()),
-    ChangeNotifierProvider(create: (_) => LikesProvider()),
-    ChangeNotifierProvider(create: (_) => EventProvider()..loadEvents()), // Carica eventi qui
-    ChangeNotifierProvider(create: (_) => BookingProvider()..loadRequests()), // Aggiunto load se presente
-  ],
-  child: MyApp(currentUserEmail: currentUserEmail),
-),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => VenueProvider()..loadVenues()),
+        ChangeNotifierProvider<MessageProvider>.value(value: messageProvider),
+        ChangeNotifierProvider(create: (_) => FilterProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()..loadTheme()),
+        ChangeNotifierProvider(create: (_) => LikesProvider()),
+        ChangeNotifierProvider(create: (_) => EventProvider()..loadEvents()), 
+        ChangeNotifierProvider(create: (_) => BookingProvider()..loadRequests()), 
+      ],
+      child: MyApp(currentUserEmail: currentUserEmail),
+    ),
   );
 }
 
@@ -95,22 +95,22 @@ class MyApp extends StatelessWidget {
         ),
       ),
 
-      // L'app parte ora dallo Splash Screen
+      // L'app parte dallo Splash Screen integrato sotto
       home: SplashScreen(currentUserEmail: currentUserEmail),
       
       routes: {
-  '/login': (context) => const LoginScreen(),
-  '/register': (context) => const RegisterScreen(),
-  '/home': (context) => HomeScreen(currentUserEmail: currentUserEmail),
-  '/profile_edit': (context) => const UserProfilePage(),
-  '/map': (context) => const MapScreen(),
-  '/venue_requests': (context) => VenueRequestsPage(venueEmail: currentUserEmail), // <--- AGGIUNTA
-},
+        '/login': (context) => const LoginScreen(),
+        '/register': (context) => const RegisterScreen(),
+        '/home': (context) => HomeScreen(currentUserEmail: currentUserEmail),
+        '/profile_edit': (context) => const UserProfilePage(),
+        '/map': (context) => const MapScreen(),
+        '/venue_requests': (context) => VenueRequestsPage(venueEmail: currentUserEmail), 
+      },
     );
   }
 }
 
-// --- NUOVO WIDGET SPLASH SCREEN ---
+// --- CLASSE SPLASH SCREEN ADATTATA SENZA CONFLITTI DI SISTEMA ---
 class SplashScreen extends StatefulWidget {
   final String currentUserEmail;
   const SplashScreen({super.key, required this.currentUserEmail});
@@ -123,7 +123,6 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // Timer di 2 secondi per mostrare il logo all'avvio
     Timer(const Duration(seconds: 2), () {
       if (widget.currentUserEmail.isEmpty) {
         Navigator.pushReplacementNamed(context, '/login');
@@ -135,25 +134,45 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Logo grande al centro dello schermo
-            GeoEventLogo(fontSize: 45),
-            SizedBox(height: 30),
-            // Caricamento discreto sotto il logo
-            SizedBox(
-              width: 40,
-              height: 40,
-              child: CircularProgressIndicator(
-                color: Colors.deepPurple,
-                strokeWidth: 3,
+    return Scaffold(
+      // Manteniamo lo Scaffold pulito impostando direttamente il viola esatto del pannello
+      backgroundColor: const Color(0xFF320064),
+      body: SafeArea(
+        top: false, // Impedisce la creazione di bande nere o vuote nella parte alta dello schermo
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Box con il tuo logo centrato
+              SizedBox(
+                width: 280,
+                height: 280,
+                child: Image.asset(
+                  'assets/app_icon.png',
+                  fit: BoxFit.contain,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 40),
+              // Caricamento discreto sotto il logo (colore giallo coordinato)
+              const SizedBox(
+                width: 40,
+                height: 40,
+                child: CircularProgressIndicator(
+                  color: Color(0xFFFFC107),
+                  strokeWidth: 3,
+                ),
+              ),
+              const SizedBox(height: 15),
+              const Text(
+                "Initializing...",
+                style: TextStyle(
+                  color: Color(0xFFFFC107),
+                  fontSize: 14,
+                  fontFamily: 'Lato',
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
