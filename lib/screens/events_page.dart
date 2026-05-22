@@ -213,14 +213,14 @@ class _EventsPageState extends State<EventsPage> {
     );
   }
 
-  Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.grey[100], 
-          borderRadius: BorderRadius.circular(15)
-        ),
+ Widget _buildSearchBar() {
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(16, 72, 16, 16),
+    child: Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(15),
+      ),
         child: Row(
           children: [
             const Padding(

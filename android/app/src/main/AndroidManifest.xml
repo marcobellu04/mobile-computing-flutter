@@ -1,9 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
    <application
-    android:label="my_first_app"
+    android:label="GEOEVENT"
     android:name="${applicationName}"
-    android:icon="@mipmap/launcher_icon"
-    android:roundIcon="@mipmap/ic_launcher">
+    android:icon="@mipmap/ic_launcher"
+    android:roundIcon="@mipmap/ic_launcher"
+    android:supportsRtl="true"
+    android:enableOnBackInvokedCallback="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
