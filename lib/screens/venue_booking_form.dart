@@ -4,6 +4,7 @@ import 'package:intl/intl.dart'; // <--- AGGIUNTO per formattare la data
 import '../models/message.dart'; 
 import '../providers/booking_provider.dart';
 import '../providers/message_provider.dart';
+import 'package:uuid/uuid.dart';
 
 class VenueBookingForm extends StatefulWidget {
   final String currentUserEmail;
@@ -92,14 +93,15 @@ class _VenueBookingFormState extends State<VenueBookingForm> {
     final textNotif = "Richiesta di ospitalità per il ${newRequest.date} alle ore ${newRequest.timeRange}.";
     
     final messageObj = Message(
-      senderEmail: widget.currentUserEmail,
-      receiverEmail: widget.venueEmail,
-      senderName: widget.currentUserEmail.split('@')[0], 
-      receiverName: widget.venueName,
-      text: textNotif,
-      timestamp: DateTime.now(),
-      isRead: false,
-    );
+  id: const Uuid().v4(),
+  senderEmail: widget.currentUserEmail,
+  receiverEmail: widget.venueEmail,
+  senderName: widget.currentUserEmail.split('@')[0],
+  receiverName: widget.venueName,
+  text: textNotif,
+  timestamp: DateTime.now(),
+  isRead: false,
+);
 
     context.read<MessageProvider>().sendMessage(messageObj);
 

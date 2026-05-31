@@ -2,8 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user.dart';
+
 
 class UserProfilePage extends StatefulWidget {
   const UserProfilePage({super.key});
@@ -51,24 +52,34 @@ class _UserProfilePageState extends State<UserProfilePage> {
   }
 
   Future<void> _loadUserEmailAndData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final email = prefs.getString('user_email');
-    setState(() { _currentUserEmail = email; });
+  final prefs = await SharedPreferences.getInstance();
+  final email = prefs.getString('user_email');
 
-    if (email == null) {
-      _initEmptyControllers();
-      return;
-    }
+  setState(() {
+    _currentUserEmail = email;
+  });
 
-    final savedImagePath = prefs.getString('user_image_$email');
-    if (savedImagePath != null) {
-      setState(() { _imageFile = File(savedImagePath); });
-    }
+  if (email == null) {
+    _initEmptyControllers();
+    return;
+  }
 
-    final jsonString = prefs.getString('user_data_$email');
-    if (jsonString != null) {
-      final Map<String, dynamic> userMap = jsonDecode(jsonString);
-      final user = User.fromMap(userMap);
+  final savedImagePath = prefs.getString('user_image_$email');
+  if (savedImagePath != null) {
+    setState(() {
+      _imageFile = File(savedImagePath);
+    });
+  }
+
+  try {
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(email)
+        .get();
+
+    if (doc.exists && doc.data() != null) {
+      final user = User.fromMap(doc.data()!);
+
       setState(() {
         _nameController = TextEditingController(text: user.name);
         _surnameController = TextEditingController(text: user.surname);
@@ -77,18 +88,27 @@ class _UserProfilePageState extends State<UserProfilePage> {
         _gender = user.gender;
         _loading = false;
       });
-    } else {
-      _initEmptyControllers();
+
+      return;
     }
+  } catch (e) {
+    debugPrint("Errore caricamento profilo da Firestore: $e");
   }
 
+  _initEmptyControllers();
+
+  setState(() {
+    _emailController.text = email;
+  });
+}
+
   void _initEmptyControllers() {
+    _nameController = TextEditingController();
+    _surnameController = TextEditingController();
+    _emailController = TextEditingController();
+    _birthDate = null;
+    _gender = null;
     setState(() {
-      _nameController = TextEditingController();
-      _surnameController = TextEditingController();
-      _emailController = TextEditingController();
-      _birthDate = null;
-      _gender = null;
       _loading = false;
     });
   }
@@ -120,31 +140,53 @@ class _UserProfilePageState extends State<UserProfilePage> {
   }
 
   Future<void> _saveUserData() async {
-    if (_formKey.currentState!.validate() && _birthDate != null && _gender != null && _currentUserEmail != null) {
-      final user = User(
-        name: _nameController.text.trim(),
-        surname: _surnameController.text.trim(),
-        email: _currentUserEmail!,
-        birthDate: _birthDate!,
-        gender: _gender!,
-      );
-      
+  if (_formKey.currentState!.validate() &&
+      _birthDate != null &&
+      _gender != null &&
+      _currentUserEmail != null) {
+
+    final user = User(
+      name: _nameController.text.trim(),
+      surname: _surnameController.text.trim(),
+      email: _currentUserEmail!,
+      birthDate: _birthDate!,
+      gender: _gender!,
+    );
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_currentUserEmail)
+          .set(user.toMap());
+
       final prefs = await SharedPreferences.getInstance();
-      final jsonString = jsonEncode(user.toMap());
-      await prefs.setString('user_data_$_currentUserEmail', jsonString);
-      
+
       if (_imageFile != null) {
-        await prefs.setString('user_image_$_currentUserEmail', _imageFile!.path);
+        await prefs.setString(
+          'user_image_$_currentUserEmail',
+          _imageFile!.path,
+        );
       }
 
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profilo salvato con successo')),
+        const SnackBar(
+          content: Text('Profilo salvato con successo'),
+        ),
       );
-      
-      // Torniamo indietro notificando che i dati sono cambiati
+
       Navigator.pop(context, true);
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Errore salvataggio profilo: $e'),
+        ),
+      );
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {

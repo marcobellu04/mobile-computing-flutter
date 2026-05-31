@@ -1,16 +1,14 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/event.dart';
 
 class EventProvider extends ChangeNotifier {
   List<Event> _events = [];
 
-  // MODIFICA: Restituisce solo eventi la cui data è oggi o nel futuro
   List<Event> get events {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    
+
     return _events.where((e) {
       return e.date.isAfter(today) || e.date.isAtSameMomentAs(today);
     }).toList();
@@ -20,147 +18,199 @@ class EventProvider extends ChangeNotifier {
     loadEvents();
   }
 
-  // --- CARICAMENTO E SALVATAGGIO ---
+ void loadEvents() {
+  FirebaseFirestore.instance
+      .collection('events')
+      .snapshots()
+      .listen((snapshot) {
+    _events = snapshot.docs
+        .map((doc) => Event.fromMap(doc.data()))
+        .toList();
 
-  Future<void> loadEvents() async {
-    final prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString('events');
-    if (data != null) {
-      try {
-        final List list = jsonDecode(data);
-        _events = list.map((e) => Event.fromMap(e as Map<String, dynamic>)).toList();
-        notifyListeners();
-      } catch (e) {
-        debugPrint("Errore caricamento eventi: $e");
-      }
-    }
-  }
+    notifyListeners();
+  });
+}
 
-  Future<void> _saveEvents() async {
+  Future<void> addEvent(Event event) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final list = _events.map((e) => e.toMap()).toList();
-      await prefs.setString('events', jsonEncode(list));
+      await FirebaseFirestore.instance
+          .collection('events')
+          .doc(event.id)
+          .set(event.toMap());
+
+      _events.add(event);
+      notifyListeners();
     } catch (e) {
-      debugPrint("Errore salvataggio eventi: $e");
+      debugPrint("Errore salvataggio evento su Firestore: $e");
     }
   }
 
-  // --- AGGIUNTA NUOVO EVENTO ---
-
-  void addEvent(Event event) {
-    _events.add(event);
-    _saveEvents(); 
-    notifyListeners(); 
-  }
-
-  // --- LOGICA PARTECIPAZIONE ---
-
-  void joinEvent(String eventId, String email) {
+  Future<void> joinEvent(String eventId, String email) async {
     final index = _events.indexWhere((e) => e.id == eventId);
     if (index == -1) return;
+
     final event = _events[index];
     if (event.participants.contains(email)) return;
 
-    _events[index] = event.copyWith(
+    final updatedEvent = event.copyWith(
       participants: [...event.participants, email],
     );
-    _saveEvents();
+
+    _events[index] = updatedEvent;
+
+    await FirebaseFirestore.instance
+        .collection('events')
+        .doc(eventId)
+        .set(updatedEvent.toMap());
+
     notifyListeners();
   }
 
-  void requestToJoin(String eventId, String email) {
+  Future<void> requestToJoin(String eventId, String email) async {
     final index = _events.indexWhere((e) => e.id == eventId);
     if (index == -1) return;
-    final event = _events[index];
-    if (event.pendingRequests.contains(email) || event.participants.contains(email)) return;
 
-    _events[index] = event.copyWith(
+    final event = _events[index];
+
+    if (event.pendingRequests.contains(email) ||
+        event.participants.contains(email)) {
+      return;
+    }
+
+    final updatedEvent = event.copyWith(
       pendingRequests: [...event.pendingRequests, email],
     );
-    _saveEvents();
+
+    _events[index] = updatedEvent;
+
+    await FirebaseFirestore.instance
+        .collection('events')
+        .doc(eventId)
+        .set(updatedEvent.toMap());
+
     notifyListeners();
   }
 
-  void approveRequest(String eventId, String userEmail) {
+  Future<void> approveRequest(String eventId, String userEmail) async {
     final index = _events.indexWhere((e) => e.id == eventId);
     if (index == -1) return;
+
     final event = _events[index];
 
-    _events[index] = event.copyWith(
-      pendingRequests: event.pendingRequests.where((e) => e != userEmail).toList(),
+    final updatedEvent = event.copyWith(
+      pendingRequests:
+          event.pendingRequests.where((e) => e != userEmail).toList(),
       participants: [...event.participants, userEmail],
     );
-    _saveEvents();
+
+    _events[index] = updatedEvent;
+
+    await FirebaseFirestore.instance
+        .collection('events')
+        .doc(eventId)
+        .set(updatedEvent.toMap());
+
     notifyListeners();
   }
 
-  void rejectRequest(String eventId, String userEmail) {
+  Future<void> rejectRequest(String eventId, String userEmail) async {
     final index = _events.indexWhere((e) => e.id == eventId);
     if (index == -1) return;
+
     final event = _events[index];
 
-    _events[index] = event.copyWith(
-      pendingRequests: event.pendingRequests.where((e) => e != userEmail).toList(),
+    final updatedEvent = event.copyWith(
+      pendingRequests:
+          event.pendingRequests.where((e) => e != userEmail).toList(),
     );
-    _saveEvents();
+
+    _events[index] = updatedEvent;
+
+    await FirebaseFirestore.instance
+        .collection('events')
+        .doc(eventId)
+        .set(updatedEvent.toMap());
+
     notifyListeners();
   }
 
-  // --- CANCELLAZIONE ---
-
-  void deleteEvent(String eventId) {
+  Future<void> deleteEvent(String eventId) async {
     _events.removeWhere((e) => e.id == eventId);
-    _saveEvents();
+
+    await FirebaseFirestore.instance
+        .collection('events')
+        .doc(eventId)
+        .delete();
+
     notifyListeners();
   }
 
-  void deleteEventsByOwner(String ownerEmail) {
-    _events.removeWhere((e) => e.ownerEmail.trim().toLowerCase() == ownerEmail.trim().toLowerCase());
-    _saveEvents();
+  Future<void> deleteEventsByOwner(String ownerEmail) async {
+    final toDelete = _events
+        .where((e) =>
+            e.ownerEmail.trim().toLowerCase() ==
+            ownerEmail.trim().toLowerCase())
+        .toList();
+
+    for (final event in toDelete) {
+      await FirebaseFirestore.instance
+          .collection('events')
+          .doc(event.id)
+          .delete();
+    }
+
+    _events.removeWhere((e) =>
+        e.ownerEmail.trim().toLowerCase() ==
+        ownerEmail.trim().toLowerCase());
+
     notifyListeners();
   }
 
-  // --- GETTERS PER FILTRI ---
-  
   List<Event> getUpcomingParticipations(String email) {
     if (email.isEmpty) return [];
+
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    
-    return _events.where((e) => 
-      e.participants.contains(email) && 
-      (e.date.isAfter(today) || e.date.isAtSameMomentAs(today))
-    ).toList();
+
+    return _events
+        .where((e) =>
+            e.participants.contains(email) &&
+            (e.date.isAfter(today) || e.date.isAtSameMomentAs(today)))
+        .toList();
   }
 
-  // --- AGGIORNAMENTO EVENTO ESISTENTE ---
-  void updateEvent(Event updatedEvent) {
+  Future<void> updateEvent(Event updatedEvent) async {
     final index = _events.indexWhere((e) => e.id == updatedEvent.id);
+
     if (index != -1) {
       _events[index] = updatedEvent;
-      _saveEvents(); 
-      notifyListeners(); 
+
+      await FirebaseFirestore.instance
+          .collection('events')
+          .doc(updatedEvent.id)
+          .set(updatedEvent.toMap());
+
+      notifyListeners();
     }
   }
 
-  // --- LOGICA NOTIFICHE ---
-
-  /// Restituisce il numero totale di richieste pendenti per tutti gli eventi di un utente
   int getTotalPendingRequestsForOwner(String ownerEmail) {
     return _events
-        .where((e) => e.ownerEmail.trim().toLowerCase() == ownerEmail.trim().toLowerCase())
+        .where((e) =>
+            e.ownerEmail.trim().toLowerCase() ==
+            ownerEmail.trim().toLowerCase())
         .fold(0, (sum, event) => sum + event.pendingRequests.length);
   }
 
-  /// Restituisce true se c'è almeno una richiesta pendente per quell'organizzatore
   bool hasNotifications(String ownerEmail) {
     return getTotalPendingRequestsForOwner(ownerEmail) > 0;
   }
 
   int countPendingRequestsForOwner(String ownerEmail) {
-  return _events
-      .where((e) => e.ownerEmail.trim().toLowerCase() == ownerEmail.trim().toLowerCase())
-      .fold(0, (sum, event) => sum + event.pendingRequests.length);
-}
+    return _events
+        .where((e) =>
+            e.ownerEmail.trim().toLowerCase() ==
+            ownerEmail.trim().toLowerCase())
+        .fold(0, (sum, event) => sum + event.pendingRequests.length);
+  }
 }

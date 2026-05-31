@@ -1,44 +1,59 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Message {
+  final String id;
   final String senderEmail;
   final String receiverEmail;
   final String text;
   final DateTime timestamp;
   final String? senderName;
   final String? receiverName;
-  bool isRead; // 1. Aggiunto campo per lo stato di lettura
+  bool isRead;
 
   Message({
+    required this.id,
     required this.senderEmail,
     required this.receiverEmail,
     required this.text,
     required this.timestamp,
     this.senderName,
     this.receiverName,
-    this.isRead = false, // 2. Default a false (nuovo messaggio = non letto)
+    this.isRead = false,
   });
 
   factory Message.fromMap(Map<String, dynamic> map) {
+    DateTime parsedTimestamp;
+
+    if (map['timestamp'] is Timestamp) {
+      parsedTimestamp = (map['timestamp'] as Timestamp).toDate();
+    } else if (map['timestamp'] is String) {
+      parsedTimestamp = DateTime.parse(map['timestamp']);
+    } else {
+      parsedTimestamp = DateTime.now();
+    }
+
     return Message(
-      senderEmail: map['senderEmail'] as String,
-      receiverEmail: map['receiverEmail'] as String,
-      text: map['text'] as String,
-      timestamp: DateTime.parse(map['timestamp'] as String),
-      senderName: map['senderName'] as String?,
-      receiverName: map['receiverName'] as String?,
-      // 3. Recupero lo stato dal database/pref, se nullo metto false
-      isRead: map['isRead'] as bool? ?? false, 
+      id: map['id'] ?? '',
+      senderEmail: map['senderEmail'] ?? '',
+      receiverEmail: map['receiverEmail'] ?? '',
+      text: map['text'] ?? '',
+      timestamp: parsedTimestamp,
+      senderName: map['senderName'],
+      receiverName: map['receiverName'],
+      isRead: map['isRead'] ?? false,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
+      'id': id,
       'senderEmail': senderEmail,
       'receiverEmail': receiverEmail,
       'text': text,
       'timestamp': timestamp.toIso8601String(),
       'senderName': senderName,
       'receiverName': receiverName,
-      'isRead': isRead, // 4. Salvo lo stato nel JSON
+      'isRead': isRead,
     };
   }
 }

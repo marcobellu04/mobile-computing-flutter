@@ -152,39 +152,54 @@ class _AddEventScreenState extends State<AddEventScreen> {
     if (picked != null) setState(() => _selectedTime = picked);
   }
 
-  void _saveEvent() {
-    if (!_formKey.currentState!.validate() || _selectedDate == null || _selectedTime == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Compila i campi obbligatori, data e ora')));
-      return;
-    }
-    
-    final finalDateTime = DateTime(_selectedDate!.year, _selectedDate!.month, _selectedDate!.day, _selectedTime!.hour, _selectedTime!.minute);
-    
-    final newEvent = Event(
-      id: const Uuid().v4(),
-      name: _nameController.text.trim(),
-      description: _descriptionController.text.trim(),
-      date: finalDateTime,
-      zone: _zoneController.text.trim(),
-      fullAddress: _buildFullAddressString(), // Salviamo l'indirizzo completo formattato bene
-      ownerEmail: widget.ownerEmail,
-      ownerName: widget.ownerName,
-      ownerSurname: widget.ownerSurname,
-      maxParticipants: _maxParticipants,
-      listType: _listType,
-      ageRestrictionType: _ageRestrictionType,
-      ageRestrictionValue: _ageRestrictionValue,
-      participants: [],
-      pendingRequests: [],
-      venueId: _selectedVenueName, 
-      lat: eventLat,
-      lng: eventLng,
-      imagePaths: _imageFiles.map((f) => f.path).toList(),
+ Future<void> _saveEvent() async {
+  if (!_formKey.currentState!.validate() ||
+      _selectedDate == null ||
+      _selectedTime == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Compila i campi obbligatori, data e ora'),
+      ),
     );
+    return;
+  }
 
-    context.read<EventProvider>().addEvent(newEvent);
+  final finalDateTime = DateTime(
+    _selectedDate!.year,
+    _selectedDate!.month,
+    _selectedDate!.day,
+    _selectedTime!.hour,
+    _selectedTime!.minute,
+  );
+
+  final newEvent = Event(
+    id: const Uuid().v4(),
+    name: _nameController.text.trim(),
+    description: _descriptionController.text.trim(),
+    date: finalDateTime,
+    zone: _zoneController.text.trim(),
+    fullAddress: _buildFullAddressString(),
+    ownerEmail: widget.ownerEmail,
+    ownerName: widget.ownerName,
+    ownerSurname: widget.ownerSurname,
+    maxParticipants: _maxParticipants,
+    listType: _listType,
+    ageRestrictionType: _ageRestrictionType,
+    ageRestrictionValue: _ageRestrictionValue,
+    participants: [],
+    pendingRequests: [],
+    venueId: _selectedVenueName,
+    lat: eventLat,
+    lng: eventLng,
+    imagePaths: _imageFiles.map((f) => f.path).toList(),
+  );
+
+  await context.read<EventProvider>().addEvent(newEvent);
+
+  if (mounted) {
     Navigator.pop(context);
   }
+}
 
   @override
   Widget build(BuildContext context) {

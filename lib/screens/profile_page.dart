@@ -16,6 +16,7 @@ import 'package:provider/provider.dart';
 import 'event_detail_page.dart';
 import 'venue_detail_screen.dart';
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ProfilePage extends StatefulWidget {
   final String currentUserEmail;
@@ -46,23 +47,49 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _loadUser() async {
-    final prefs = await SharedPreferences.getInstance();
-    final email = widget.profileUserEmail;
-    final savedPath = prefs.getString('user_image_$email');
-    if (savedPath != null) {
-      setState(() { _profileImage = File(savedPath); });
-    }
-    final jsonString = prefs.getString('user_data_$email');
-    if (jsonString == null) return;
-    final Map<String, dynamic> map = jsonDecode(jsonString);
-    setState(() { _user = User.fromMap(map); });
+  final prefs = await SharedPreferences.getInstance();
+  final email = widget.profileUserEmail;
+
+  final savedPath = prefs.getString('user_image_$email');
+  if (savedPath != null) {
+    setState(() {
+      _profileImage = File(savedPath);
+    });
   }
+
+  try {
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(email)
+        .get();
+
+    if (doc.exists && doc.data() != null) {
+      setState(() {
+        _user = User.fromMap(doc.data()!);
+      });
+      return;
+    }
+  } catch (e) {
+    debugPrint("Errore caricamento profilo da Firestore: $e");
+  }
+
+  setState(() {
+    _user = User.publicProfile(
+      name: email.split('@')[0],
+      surname: '',
+      email: email,
+    );
+  });
+}
 
   Future<void> _loadPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
-    });
+    final enabled = prefs.getBool('notifications_enabled');
+    if (enabled != null) {
+      setState(() {
+        _notificationsEnabled = enabled;
+      });
+    }
   }
 
   Future<void> _savePrefs() async {
@@ -328,14 +355,17 @@ class _ProfilePageState extends State<ProfilePage> {
                 leading: const Icon(Icons.logout, color: Colors.redAccent),
                 title: const Text('Logout', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
                 onTap: () async {
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.setBool('isLoggedIn', false);
-                  try {
-                    await GoogleSignIn().signOut();
-                    await FirebaseAuth.instance.signOut();
-                  } catch (_) {}
-                  if (mounted) Navigator.of(context).pushReplacementNamed('/login');
-                },
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool('isLoggedIn', false);
+  await prefs.remove('user_email');
+
+  try {
+    await GoogleSignIn().signOut();
+    await FirebaseAuth.instance.signOut();
+  } catch (_) {}
+
+  if (mounted) Navigator.of(context).pushReplacementNamed('/login');
+},
               ),
               const Divider(height: 1, indent: 50),
               ListTile(

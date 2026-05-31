@@ -160,17 +160,18 @@ class _HomeScreenState extends State<HomeScreen> {
     final prefs = await SharedPreferences.getInstance();
     final email = prefs.getString('user_email') ?? '';
 
-    String ownerName = '';
-    String ownerSurname = '';
+    String ownerName = email.split('@')[0];
+String ownerSurname = '';
 
     if (email.isNotEmpty) {
       final jsonString = prefs.getString('user_data_$email');
 
       if (jsonString != null) {
-        final map = jsonDecode(jsonString) as Map<String, dynamic>;
-        ownerName = (map['name'] ?? '') as String;
-        ownerSurname = (map['surname'] ?? '') as String;
-      }
+  final map = jsonDecode(jsonString) as Map<String, dynamic>;
+
+  ownerName = (map['name'] ?? ownerName) as String;
+  ownerSurname = (map['surname'] ?? '') as String;
+}
     }
 
     if (email.isEmpty) return;

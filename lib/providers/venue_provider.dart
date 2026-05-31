@@ -1,6 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/venue.dart';
 
 class VenueProvider extends ChangeNotifier {
@@ -12,83 +11,114 @@ class VenueProvider extends ChangeNotifier {
     loadVenues();
   }
 
-  // ─────────────────────────────
-  // GESTIONE RICHIESTE (SBLOCCATA PER TEST)
-  // ─────────────────────────────
-
-  /// Verifica se una specifica struttura ha richieste pendenti.
- bool hasPendingRequests(String venueId, List<dynamic> allRequests) {
-    // Cerchiamo se tra tutte le prenotazioni ce n'è una per questa struttura con stato 'pending'
-    return allRequests.any((r) => r.venueId == venueId && r.status == 'pending');
+  bool hasPendingRequests(String venueId, List<dynamic> allRequests) {
+    return allRequests.any(
+      (r) => r.venueId == venueId && r.status == 'pending',
+    );
   }
-
-  // ─────────────────────────────
-  // CARICAMENTO E SALVATAGGIO
-  // ─────────────────────────────
 
   Future<void> loadVenues() async {
-    final prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString('venues');
-    if (data != null) {
-      try {
-        final List list = jsonDecode(data) as List;
-        _venues = list.map((e) => Venue.fromMap(e as Map<String, dynamic>)).toList();
-        notifyListeners();
-      } catch (e) {
-        print("Errore nel caricamento delle strutture: $e");
-      }
+    try {
+      final snapshot =
+          await FirebaseFirestore.instance.collection('venues').get();
+
+      _venues = snapshot.docs
+          .map((doc) => Venue.fromMap(doc.data()))
+          .toList();
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Errore caricamento strutture da Firestore: $e");
     }
   }
 
-  Future<void> _saveVenues() async {
-    final prefs = await SharedPreferences.getInstance();
-    final list = _venues.map((v) => v.toMap()).toList();
-    await prefs.setString('venues', jsonEncode(list));
+  Future<void> addVenue(Venue venue) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('venues')
+          .doc(venue.id)
+          .set(venue.toMap());
+
+      _venues.add(venue);
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Errore salvataggio struttura su Firestore: $e");
+    }
   }
 
-  // ─────────────────────────────
-  // OPERAZIONI CRUD
-  // ─────────────────────────────
-
-  void addVenue(Venue venue) {
-    _venues.add(venue);
-    _saveVenues();
-    notifyListeners();
-  }
-
-  void setVenues(List<Venue> venues) {
+  Future<void> setVenues(List<Venue> venues) async {
     _venues = venues;
-    _saveVenues();
+
+    for (final venue in venues) {
+      await FirebaseFirestore.instance
+          .collection('venues')
+          .doc(venue.id)
+          .set(venue.toMap());
+    }
+
     notifyListeners();
   }
 
-  void updateVenue(Venue updatedVenue) {
+  Future<void> updateVenue(Venue updatedVenue) async {
     final index = _venues.indexWhere((v) => v.id == updatedVenue.id);
+
     if (index != -1) {
       _venues[index] = updatedVenue;
-      _saveVenues();
+
+      await FirebaseFirestore.instance
+          .collection('venues')
+          .doc(updatedVenue.id)
+          .set(updatedVenue.toMap());
+
       notifyListeners();
     }
   }
 
-  void updateVenueImage(String venueId, String newPath) {
+  Future<void> updateVenueImage(String venueId, String newPath) async {
     final index = _venues.indexWhere((v) => v.id == venueId);
+
     if (index != -1) {
-      _venues[index] = _venues[index].copyWith(imagePath: newPath);
-      _saveVenues();
+      final updatedVenue = _venues[index].copyWith(imagePath: newPath);
+      _venues[index] = updatedVenue;
+
+      await FirebaseFirestore.instance
+          .collection('venues')
+          .doc(venueId)
+          .set(updatedVenue.toMap());
+
       notifyListeners();
     }
   }
 
-  void deleteVenue(String venueId) {
+  Future<void> deleteVenue(String venueId) async {
     _venues.removeWhere((v) => v.id == venueId);
-    _saveVenues();
+
+    await FirebaseFirestore.instance
+        .collection('venues')
+        .doc(venueId)
+        .delete();
+
     notifyListeners();
   }
 
-  void deleteVenuesByOwner(String ownerEmail) {
-    _venues.removeWhere((v) => v.ownerEmail.trim().toLowerCase() == ownerEmail.trim().toLowerCase());
-    _saveVenues();
+  Future<void> deleteVenuesByOwner(String ownerEmail) async {
+    final toDelete = _venues
+        .where((v) =>
+            v.ownerEmail.trim().toLowerCase() ==
+            ownerEmail.trim().toLowerCase())
+        .toList();
+
+    for (final venue in toDelete) {
+      await FirebaseFirestore.instance
+          .collection('venues')
+          .doc(venue.id)
+          .delete();
+    }
+
+    _venues.removeWhere((v) =>
+        v.ownerEmail.trim().toLowerCase() ==
+        ownerEmail.trim().toLowerCase());
+
     notifyListeners();
   }
 }

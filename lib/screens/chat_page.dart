@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/message.dart';
 import '../providers/message_provider.dart';
 import 'venue_requests_page.dart'; // Import necessario per navigare alle richieste
+import 'package:uuid/uuid.dart';
 
 class ChatPage extends StatefulWidget {
   final String userEmail;    
@@ -40,14 +41,15 @@ class _ChatPageState extends State<ChatPage> {
     if (text.isEmpty) return;
 
     final message = Message(
-      senderEmail: widget.userEmail,
-      receiverEmail: widget.venueEmail,
-      senderName: widget.userEmail.split('@')[0],
-      receiverName: widget.venueName,
-      text: text,
-      timestamp: DateTime.now(),
-      isRead: false,
-    );
+  id: const Uuid().v4(),
+  senderEmail: widget.userEmail,
+  receiverEmail: widget.venueEmail,
+  senderName: widget.userEmail.split('@')[0],
+  receiverName: widget.venueName,
+  text: text,
+  timestamp: DateTime.now(),
+  isRead: false,
+);
 
     final messageProvider = Provider.of<MessageProvider>(context, listen: false);
     messageProvider.sendMessage(message);

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/booking_provider.dart';
 import '../providers/message_provider.dart'; // Aggiunto import
 import '../models/message.dart';           // Aggiunto import
+import 'package:uuid/uuid.dart';
 
 class VenueRequestsPage extends StatelessWidget {
   final String venueEmail;
@@ -24,15 +25,15 @@ class VenueRequestsPage extends StatelessWidget {
 
     // 3. Invia il messaggio automatico
     final autoMessage = Message(
-      senderEmail: req.venueEmail,   // La struttura invia
-      receiverEmail: req.senderEmail, // L'utente riceve
-      senderName: req.venueName,
-      receiverName: req.senderEmail.split('@')[0],
-      text: notifyText,
-      timestamp: DateTime.now(),
-      isRead: false,
-    );
-
+  id: const Uuid().v4(),
+  senderEmail: req.venueEmail,
+  receiverEmail: req.senderEmail,
+  senderName: req.venueName,
+  receiverName: req.senderEmail.split('@')[0],
+  text: notifyText,
+  timestamp: DateTime.now(),
+  isRead: false,
+);
     messageProvider.sendMessage(autoMessage);
   }
 
