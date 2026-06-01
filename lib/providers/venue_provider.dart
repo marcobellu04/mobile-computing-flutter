@@ -17,34 +17,29 @@ class VenueProvider extends ChangeNotifier {
     );
   }
 
-  Future<void> loadVenues() async {
-    try {
-      final snapshot =
-          await FirebaseFirestore.instance.collection('venues').get();
+  void loadVenues() {
+  FirebaseFirestore.instance
+      .collection('venues')
+      .snapshots()
+      .listen((snapshot) {
+    _venues = snapshot.docs
+        .map((doc) => Venue.fromMap(doc.data()))
+        .toList();
 
-      _venues = snapshot.docs
-          .map((doc) => Venue.fromMap(doc.data()))
-          .toList();
-
-      notifyListeners();
-    } catch (e) {
-      debugPrint("Errore caricamento strutture da Firestore: $e");
-    }
-  }
+    notifyListeners();
+  });
+}
 
   Future<void> addVenue(Venue venue) async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('venues')
-          .doc(venue.id)
-          .set(venue.toMap());
-
-      _venues.add(venue);
-      notifyListeners();
-    } catch (e) {
-      debugPrint("Errore salvataggio struttura su Firestore: $e");
-    }
+  try {
+    await FirebaseFirestore.instance
+        .collection('venues')
+        .doc(venue.id)
+        .set(venue.toMap());
+  } catch (e) {
+    debugPrint("Errore salvataggio struttura su Firestore: $e");
   }
+}
 
   Future<void> setVenues(List<Venue> venues) async {
     _venues = venues;

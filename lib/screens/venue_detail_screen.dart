@@ -183,7 +183,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                           style: const TextStyle(fontWeight: FontWeight.w600)),
                         subtitle: Text(current.ownerEmail ?? "Email non disponibile"),
                       ),
-                      const SizedBox(height: 120), 
+                      const SizedBox(height: 170), 
                     ],
                   ),
                 ),
@@ -206,7 +206,9 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
           ),
          // Bottoni in fondo
 Positioned(
-  bottom: 0, left: 0, right: 0,
+  bottom: MediaQuery.of(context).padding.bottom,
+  left: 0,
+  right: 0,
   child: Container(
     padding: const EdgeInsets.fromLTRB(25, 15, 25, 25),
     decoration: const BoxDecoration(

@@ -55,6 +55,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
   final List<File> _imageFiles = [];
   final ImagePicker _picker = ImagePicker();
 
+
   @override
   void initState() {
     super.initState();
@@ -172,8 +173,23 @@ class _AddEventScreenState extends State<AddEventScreen> {
     _selectedTime!.minute,
   );
 
+  if (eventLat == null || eventLng == null) {
+  await _geocodeAddress();
+}
+
+if (eventLat == null || eventLng == null) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Verifica la posizione prima di pubblicare l’evento'),
+      backgroundColor: Colors.redAccent,
+    ),
+  );
+  return;
+}
+  final eventId = const Uuid().v4();
+
   final newEvent = Event(
-    id: const Uuid().v4(),
+    id: eventId,
     name: _nameController.text.trim(),
     description: _descriptionController.text.trim(),
     date: finalDateTime,
@@ -214,7 +230,12 @@ class _AddEventScreenState extends State<AddEventScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Crea Evento', style: TextStyle(fontWeight: FontWeight.bold))),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.fromLTRB(
+  20,
+  20,
+  20,
+  20 + MediaQuery.of(context).padding.bottom + 40,
+),
         child: Form(
           key: _formKey,
           child: Column(

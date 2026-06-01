@@ -75,54 +75,40 @@ class BookingProvider with ChangeNotifier {
         .toList();
   }
 
-  Future<void> loadRequests() async {
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('booking_requests')
-          .get();
+  void loadRequests() {
+  FirebaseFirestore.instance
+      .collection('booking_requests')
+      .snapshots()
+      .listen((snapshot) {
+    _requests = snapshot.docs
+        .map((doc) => VenueBookingRequest.fromMap(doc.data()))
+        .toList();
 
-      _requests = snapshot.docs
-          .map((doc) => VenueBookingRequest.fromMap(doc.data()))
-          .toList();
-
-      notifyListeners();
-    } catch (e) {
-      debugPrint("Errore caricamento richieste da Firestore: $e");
-    }
-  }
+    notifyListeners();
+  });
+}
 
   Future<void> sendRequest(VenueBookingRequest request) async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('booking_requests')
-          .doc(request.id)
-          .set(request.toMap());
-
-      _requests.add(request);
-      notifyListeners();
-    } catch (e) {
-      debugPrint("Errore invio richiesta su Firestore: $e");
-    }
+  try {
+    await FirebaseFirestore.instance
+        .collection('booking_requests')
+        .doc(request.id)
+        .set(request.toMap());
+  } catch (e) {
+    debugPrint("Errore invio richiesta su Firestore: $e");
   }
+}
 
   Future<void> updateRequestStatus(String requestId, String newStatus) async {
-    final index = _requests.indexWhere((r) => r.id == requestId);
-
-    if (index != -1) {
-      try {
-        _requests[index].status = newStatus;
-
-        await FirebaseFirestore.instance
-            .collection('booking_requests')
-            .doc(requestId)
-            .update({
-          'status': newStatus,
-        });
-
-        notifyListeners();
-      } catch (e) {
-        debugPrint("Errore aggiornamento richiesta su Firestore: $e");
-      }
-    }
+  try {
+    await FirebaseFirestore.instance
+        .collection('booking_requests')
+        .doc(requestId)
+        .update({
+      'status': newStatus,
+    });
+  } catch (e) {
+    debugPrint("Errore aggiornamento richiesta su Firestore: $e");
   }
+}
 }

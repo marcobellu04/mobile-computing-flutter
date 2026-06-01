@@ -59,41 +59,43 @@ class MessageProvider extends ChangeNotifier {
     return list;
   }
 
-  Future<void> loadMessages() async {
-    try {
-      final snapshot =
-          await FirebaseFirestore.instance.collection('messages').get();
+  void loadMessages() {
+  FirebaseFirestore.instance
+      .collection('messages')
+      .orderBy('timestamp')
+      .snapshots()
+      .listen((snapshot) {
+    _messages.clear();
 
-      _messages.clear();
-      _messages.addAll(
-        snapshot.docs.map((doc) {
-          final data = doc.data();
-          if ((data['id'] ?? '').toString().isEmpty) {
-            data['id'] = doc.id;
-          }
-          return Message.fromMap(data);
-        }),
-      );
+    _messages.addAll(
+      snapshot.docs.map((doc) {
+        final data = doc.data();
 
-      notifyListeners();
-    } catch (e) {
-      debugPrint("Errore caricamento messaggi da Firestore: $e");
-    }
-  }
+        if ((data['id'] ?? '').toString().isEmpty) {
+          data['id'] = doc.id;
+        }
+
+        return Message.fromMap(data);
+      }),
+    );
+
+    notifyListeners();
+  });
+}
 
   Future<void> sendMessage(Message message) async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('messages')
-          .doc(message.id)
-          .set(message.toMap());
+  try {
+    final data = message.toMap();
+    data['timestamp'] = FieldValue.serverTimestamp();
 
-      _messages.add(message);
-      notifyListeners();
-    } catch (e) {
-      debugPrint("Errore invio messaggio su Firestore: $e");
-    }
+    await FirebaseFirestore.instance
+        .collection('messages')
+        .doc(message.id)
+        .set(data);
+  } catch (e) {
+    debugPrint("Errore invio messaggio su Firestore: $e");
   }
+}
 
   List<ChatSummary> getChatSummariesForUser(String userEmail) {
     final Map<String, ChatSummary> summaries = {};
@@ -129,6 +131,7 @@ class MessageProvider extends ChangeNotifier {
 
     final list = summaries.values.toList();
     list.sort((a, b) => b.lastMessageTimestamp.compareTo(a.lastMessageTimestamp));
+
     return list;
   }
 }

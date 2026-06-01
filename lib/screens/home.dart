@@ -67,9 +67,15 @@ class _HomeScreenState extends State<HomeScreen> {
     final choice = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (context) {
         return Container(
-          padding: const EdgeInsets.all(24),
+         padding: EdgeInsets.fromLTRB(
+  24,
+  24,
+  24,
+  24 + MediaQuery.of(context).padding.bottom,
+),
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(
@@ -216,7 +222,7 @@ String ownerSurname = '';
     }
 
     return Scaffold(
-      extendBody: true,
+      extendBody: false,
 
       body: Stack(
   children: [

@@ -92,8 +92,10 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
       return;
     }
 
+    final venueId = const Uuid().v4();
+
     final newVenue = Venue(
-      id: const Uuid().v4(),
+      id: venueId,
       name: nameController.text.trim(),
       ownerEmail: widget.ownerEmail, 
       ownerName: widget.ownerName,

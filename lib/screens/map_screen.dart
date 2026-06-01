@@ -79,9 +79,14 @@ class _MapScreenState extends State<MapScreen> {
     final markers = <Marker>[];
 
     for (final e in events) {
-      if (e.lat == null || e.lng == null) continue;
+  final lat = e.lat;
+  final lng = e.lng;
 
-      final pos = LatLng(e.lat!, e.lng!);
+  if (lat == null || lng == null) continue;
+  if (!lat.isFinite || !lng.isFinite) continue;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) continue;
+
+  final pos = LatLng(lat, lng);
       final bool isGuest = _me == 'guest@local';
       final bool isMine = e.participants.any((p) => p.trim().toLowerCase() == _me.trim().toLowerCase());
 

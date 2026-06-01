@@ -32,18 +32,15 @@ class EventProvider extends ChangeNotifier {
 }
 
   Future<void> addEvent(Event event) async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('events')
-          .doc(event.id)
-          .set(event.toMap());
-
-      _events.add(event);
-      notifyListeners();
-    } catch (e) {
-      debugPrint("Errore salvataggio evento su Firestore: $e");
-    }
+  try {
+    await FirebaseFirestore.instance
+        .collection('events')
+        .doc(event.id)
+        .set(event.toMap());
+  } catch (e) {
+    debugPrint("Errore salvataggio evento su Firestore: $e");
   }
+}
 
   Future<void> joinEvent(String eventId, String email) async {
     final index = _events.indexWhere((e) => e.id == eventId);

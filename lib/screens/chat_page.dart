@@ -129,11 +129,10 @@ class _ChatPageState extends State<ChatPage> {
         children: [
           Expanded(
             child: ListView.builder(
-              reverse: true,
               padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 20),
               itemCount: messages.length,
               itemBuilder: (_, index) {
-                final msg = messages[messages.length - 1 - index];
+                final msg = messages[index];
                 final isMe = msg.senderEmail == widget.userEmail;
                 
                 return Align(

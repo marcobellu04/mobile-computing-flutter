@@ -46,7 +46,7 @@ void main() async {
   await Firebase.initializeApp();
 
   final messageProvider = MessageProvider();
-  await messageProvider.loadMessages();
+  messageProvider.loadMessages();
 
   final prefs = await SharedPreferences.getInstance();
   final currentUserEmail =
@@ -56,9 +56,8 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(
-          create: (_) =>
-              VenueProvider()..loadVenues(),
-        ),
+  create: (_) => VenueProvider(),
+),
         ChangeNotifierProvider<MessageProvider>.value(
           value: messageProvider,
         ),
@@ -73,13 +72,11 @@ void main() async {
           create: (_) => LikesProvider(),
         ),
         ChangeNotifierProvider(
-          create: (_) =>
-              EventProvider()..loadEvents(),
+          create: (_) => EventProvider(),
         ),
         ChangeNotifierProvider(
-          create: (_) =>
-              BookingProvider()..loadRequests(),
-        ),
+  create: (_) => BookingProvider(),
+),
       ],
       child: MyApp(
         currentUserEmail: currentUserEmail,

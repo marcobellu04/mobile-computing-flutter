@@ -66,33 +66,30 @@ class LikesProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> loadForUser(String userEmail) async {
-    _currentUserEmail = userEmail;
+  void loadForUser(String userEmail) {
+  _currentUserEmail = userEmail;
 
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('user_likes')
-          .doc(userEmail)
-          .get();
+  FirebaseFirestore.instance
+      .collection('user_likes')
+      .doc(userEmail)
+      .snapshots()
+      .listen((doc) {
+    if (doc.exists && doc.data() != null) {
+      final data = doc.data()!;
 
-      if (doc.exists && doc.data() != null) {
-        final data = doc.data()!;
+      _likesByUser[userEmail] =
+          List<String>.from(data['eventLikes'] ?? []).toSet();
 
-        _likesByUser[userEmail] =
-            List<String>.from(data['eventLikes'] ?? []).toSet();
-
-        _venueLikesByUser[userEmail] =
-            List<String>.from(data['venueLikes'] ?? []).toSet();
-      } else {
-        _likesByUser[userEmail] = <String>{};
-        _venueLikesByUser[userEmail] = <String>{};
-      }
-
-      notifyListeners();
-    } catch (e) {
-      debugPrint("Errore caricamento like da Firestore: $e");
+      _venueLikesByUser[userEmail] =
+          List<String>.from(data['venueLikes'] ?? []).toSet();
+    } else {
+      _likesByUser[userEmail] = <String>{};
+      _venueLikesByUser[userEmail] = <String>{};
     }
-  }
+
+    notifyListeners();
+  });
+}
 
   Future<void> _saveForUser(String userEmail) async {
     try {

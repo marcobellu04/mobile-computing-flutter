@@ -533,25 +533,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
 
                       const Divider(height: 50),
 
-                      Row(
-
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-
-                        children: [
-
-                          _buildSectionTitle("Partecipanti"),
-
-                          Text(
-
-                            '${current.participants.length} / ${current.maxParticipants}',
-
-                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.amber, fontSize: 14),
-
-                          ),
-
-                        ],
-
-                      ),
+                      _buildSectionTitle("Partecipanti"),
 
                      
 if (isOwner && current.listType == ListType.closed) ...[
@@ -856,7 +838,12 @@ if (isOwner && current.listType == ListType.closed) ...[
 
             child: Container(
 
-              padding: const EdgeInsets.fromLTRB(25, 15, 25, 25),
+              padding: EdgeInsets.fromLTRB(
+  25,
+  15,
+  25,
+  25 + MediaQuery.of(context).padding.bottom,
+),
 
               decoration: const BoxDecoration(
 
