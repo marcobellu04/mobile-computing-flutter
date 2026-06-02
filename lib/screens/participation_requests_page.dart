@@ -10,10 +10,10 @@ class ParticipationRequestsPage extends StatefulWidget {
   final ValueChanged<Event> onEventUpdated;
 
   const ParticipationRequestsPage({
-    Key? key,
+    super.key,
     required this.event,
     required this.onEventUpdated,
-  }) : super(key: key);
+  });
 
   @override
   State<ParticipationRequestsPage> createState() => _ParticipationRequestsPageState();
@@ -59,7 +59,7 @@ class _ParticipationRequestsPageState extends State<ParticipationRequestsPage> {
     final pendingList = event.pendingRequests;
 
     return Scaffold(
-      appBar: AppBar(title: Text('Richieste di partecipazione')),
+      appBar: AppBar(title: const Text('Richieste di partecipazione')),
       body: pendingList.isEmpty
           ? const Center(child: Text('Nessuna richiesta pendente'))
           : ListView.builder(

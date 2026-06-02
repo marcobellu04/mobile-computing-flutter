@@ -1,9 +1,10 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart'; // Import standard
 import 'package:shared_preferences/shared_preferences.dart';
-
-import '../screens/user_profile_page.dart';
+import '../screens/home.dart'; 
+import 'register.dart'; 
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,6 +17,52 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
+  // --- FUNZIONE GOOGLE LOGIN (VERSIONE 6.2.1) ---
+  Future<void> _signInWithGoogle() async {
+    try {
+      // Inizializziamo il plugin
+      final GoogleSignIn googleSignIn = GoogleSignIn();
+      
+      // 1. Apre la tendina per scegliere l'account Google
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+      
+      if (googleUser == null) return; // L'utente ha annullato il login
+
+      // 2. Ottiene i dati di autenticazione (token)
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      // 3. Crea la credenziale per Firebase usando i token ricevuti
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // 4. Esegue l'accesso su Firebase
+      final UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      final String? email = userCredential.user?.email;
+
+      if (email != null) {
+        // Salva l'email nelle SharedPreferences (per il tuo sistema attuale)
+        await _saveLoggedInUser(email);
+
+        if (!mounted) return;
+        
+        // Naviga alla Home e pulisce lo stack delle pagine
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (_) => HomeScreen(currentUserEmail: email),
+          ),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      print("Errore Google Login: $e");
+      _showError('Errore durante l\'accesso con Google: $e');
+    }
+  }
+
+  // --- LOGICA LOGIN TRADIZIONALE (TUA ESISTENTE) ---
   Future<List<Map<String, dynamic>>> _getUsers() async {
     final prefs = await SharedPreferences.getInstance();
     final usersString = prefs.getString('users');
@@ -26,26 +73,6 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _saveLoggedInUser(String email) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('user_email', email);
-  }
-
-  Future<bool> _profileIncomplete(String email) async {
-    final prefs = await SharedPreferences.getInstance();
-    final userDataString = prefs.getString('user_data_$email');
-    if (userDataString == null) return true;
-    try {
-      final userMap = jsonDecode(userDataString);
-      if (userMap['name'] != null &&
-          userMap['name'].toString().isNotEmpty &&
-          userMap['surname'] != null &&
-          userMap['surname'].toString().isNotEmpty &&
-          userMap['email'] != null &&
-          userMap['email'].toString().isNotEmpty &&
-          userMap['birthDate'] != null &&
-          userMap['gender'] != null) {
-        return false;
-      }
-    } catch (_) {}
-    return true;
   }
 
   Future<void> _login() async {
@@ -69,55 +96,115 @@ class _LoginScreenState extends State<LoginScreen> {
 
     await _saveLoggedInUser(email);
 
-    if (await _profileIncomplete(email)) {
-      if (!mounted) return;
-      final completed = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(builder: (_) => const UserProfilePage()),
-      );
-      if (completed != true) {
-        _showError('Devi completare il profilo per continuare');
-        return;
-      }
-    }
-
     if (!mounted) return;
-    Navigator.pushReplacementNamed(context, '/home');
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => HomeScreen(currentUserEmail: email),
+      ),
+      (route) => false,
+    );
   }
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  void _goToRegister() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const RegisterScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: 'Email'),
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Align(
+                  alignment: Alignment.topRight,
+                  child: TextButton(
+                    onPressed: _goToRegister,
+                    child: const Text('Sign up', style: TextStyle(color: Colors.black87)),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                const Text(
+                  'Log in',
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black87),
+                ),
+                const SizedBox(height: 32),
+                const Text('Your Email', style: TextStyle(fontSize: 14, color: Colors.black87)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  style: const TextStyle(color: Colors.black87),
+                  decoration: const InputDecoration(
+                    hintText: 'hello@gmail.com',
+                    hintStyle: TextStyle(color: Colors.black38),
+                    border: UnderlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text('Password', style: TextStyle(fontSize: 14, color: Colors.black87)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _passwordController,
+                  obscureText: true,
+                  style: const TextStyle(color: Colors.black87),
+                  decoration: const InputDecoration(
+                    hintText: '••••••••',
+                    hintStyle: TextStyle(color: Colors.black38),
+                    border: UnderlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: _login,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber, 
+                      foregroundColor: Colors.black87,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+                      elevation: 4,
+                    ),
+                    child: const Text('Log in', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Center(child: Text('Or sign in with', style: TextStyle(color: Colors.black54))),
+                const SizedBox(height: 16),
+                Center(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                    ),
+                    onPressed: _signInWithGoogle, // Collegato qui
+                    icon: const Icon(Icons.g_mobiledata, size: 28, color: Colors.red),
+                    label: const Text('Continue with Google', style: TextStyle(color: Colors.black87)),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Center(
+                  child: TextButton(
+                    onPressed: _goToRegister,
+                    child: const Text('Non hai un account? Registrati', style: TextStyle(color: Colors.black87)),
+                  ),
+                ),
+              ],
             ),
-            TextField(
-              controller: _passwordController,
-              decoration: const InputDecoration(labelText: 'Password'),
-              obscureText: true,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _login,
-              child: const Text('Accedi'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/register');
-              },
-              child: const Text('Non hai un account? Registrati'),
-            ),
-          ],
+          ),
         ),
       ),
     );

@@ -5,10 +5,10 @@ class RoundedCard extends StatelessWidget {
   final EdgeInsetsGeometry padding;
 
   const RoundedCard({
-    Key? key,
+    super.key,
     required this.child,
     this.padding = const EdgeInsets.all(20),
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

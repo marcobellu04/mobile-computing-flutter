@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/message.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 
 class MessageProvider extends ChangeNotifier {
   final List<Message> _messages = [];
@@ -14,37 +13,93 @@ class MessageProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  List<Message> getMessagesBetween(String userEmail, String otherEmail) {
-    return _messages.where((m) =>
-      (m.senderEmail == userEmail && m.receiverEmail == otherEmail) ||
-      (m.senderEmail == otherEmail && m.receiverEmail == userEmail)
-    ).toList();
+  int getUnreadCount(String myEmail, String otherEmail) {
+    return _messages
+        .where(
+          (m) =>
+              m.senderEmail == otherEmail &&
+              m.receiverEmail == myEmail &&
+              m.isRead == false,
+        )
+        .length;
   }
 
-  Future<void> loadMessages() async {
-    final prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString('messages');
-    if (data != null) {
-      final List list = jsonDecode(data);
-      _messages.clear();
-      _messages.addAll(list.map((e) => Message.fromMap(e)));
+  Future<void> markAsRead(String myEmail, String otherEmail) async {
+    bool changed = false;
+
+    for (var m in _messages) {
+      if (m.senderEmail == otherEmail &&
+          m.receiverEmail == myEmail &&
+          !m.isRead) {
+        m.isRead = true;
+        changed = true;
+
+        await FirebaseFirestore.instance
+            .collection('messages')
+            .doc(m.id)
+            .update({'isRead': true});
+      }
+    }
+
+    if (changed) {
       notifyListeners();
     }
   }
 
-  Future<void> saveMessages() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('messages', jsonEncode(_messages.map((m) => m.toMap()).toList()));
+  List<Message> getMessagesBetween(String userEmail, String otherEmail) {
+    final list = _messages
+        .where(
+          (m) =>
+              (m.senderEmail == userEmail && m.receiverEmail == otherEmail) ||
+              (m.senderEmail == otherEmail && m.receiverEmail == userEmail),
+        )
+        .toList();
+
+    list.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    return list;
   }
 
-  void sendMessage(Message message) {
-    _messages.add(message);
-    saveMessages();
+  void loadMessages() {
+  FirebaseFirestore.instance
+      .collection('messages')
+      .orderBy('timestamp')
+      .snapshots()
+      .listen((snapshot) {
+    _messages.clear();
+
+    _messages.addAll(
+      snapshot.docs.map((doc) {
+        final data = doc.data();
+
+        if ((data['id'] ?? '').toString().isEmpty) {
+          data['id'] = doc.id;
+        }
+
+        return Message.fromMap(data);
+      }),
+    );
+
     notifyListeners();
+  });
+}
+
+  Future<void> sendMessage(Message message) async {
+  try {
+    final data = message.toMap();
+    data['timestamp'] = FieldValue.serverTimestamp();
+
+    await FirebaseFirestore.instance
+        .collection('messages')
+        .doc(message.id)
+        .set(data);
+  } catch (e) {
+    debugPrint("Errore invio messaggio su Firestore: $e");
   }
+}
 
   List<ChatSummary> getChatSummariesForUser(String userEmail) {
     final Map<String, ChatSummary> summaries = {};
+
     for (final msg in _messages) {
       if (msg.senderEmail != userEmail && msg.receiverEmail != userEmail) {
         continue;
@@ -62,7 +117,9 @@ class MessageProvider extends ChangeNotifier {
       }
 
       final existing = summaries[chatUserEmail];
-      if (existing == null || msg.timestamp.isAfter(existing.lastMessageTimestamp)) {
+
+      if (existing == null ||
+          msg.timestamp.isAfter(existing.lastMessageTimestamp)) {
         summaries[chatUserEmail] = ChatSummary(
           userEmail: chatUserEmail,
           userName: chatUserName,
@@ -71,8 +128,10 @@ class MessageProvider extends ChangeNotifier {
         );
       }
     }
+
     final list = summaries.values.toList();
-    list.sort((a,b) => b.lastMessageTimestamp.compareTo(a.lastMessageTimestamp));
+    list.sort((a, b) => b.lastMessageTimestamp.compareTo(a.lastMessageTimestamp));
+
     return list;
   }
 }

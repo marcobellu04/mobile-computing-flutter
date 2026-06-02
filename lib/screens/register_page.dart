@@ -114,7 +114,7 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
-                value: gender,
+                initialValue: gender,
                 decoration: const InputDecoration(labelText: 'Genere'),
                 items: const [
                   DropdownMenuItem(value: 'male', child: Text('Maschile')),
